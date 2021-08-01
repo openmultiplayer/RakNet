@@ -263,6 +263,10 @@ namespace RakNet
 			// Allocate memory for copy
 			if ( original_copy.Size() == 0 )
 			{
+				if (array) {
+					delete[] array;
+					array = 0;
+				}
 				allocation_size = 0;
 			}
 
