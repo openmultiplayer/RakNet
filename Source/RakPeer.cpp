@@ -18,8 +18,6 @@
 #include "RakPeer.h"
 #include "NetworkTypes.h"
 
-#include "../SAMPRakNet.hpp"
-
 #ifdef __USE_IO_COMPLETION_PORTS
 #include "AsynchronousFileIO.h"
 #endif
@@ -2688,7 +2686,6 @@ void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteS
 		if ( incomingPasswordLength == passwordLength &&
 			memcmp( password, incomingPassword, incomingPasswordLength ) == 0 )
 		{
-			remoteSystem->connectMode=RemoteSystemStruct::HANDLING_CONNECTION_REQUEST;
 
 #if !defined(_COMPATIBILITY_1)
 			if ( usingSecurity == false )
@@ -2721,41 +2718,62 @@ void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteS
 		}
 	}
 }
+
+void RakPeer::AcceptConnectionRequest(RakPeer::RemoteSystemStruct* remoteSystem)
+{
+	remoteSystem->connectMode = RemoteSystemStruct::HANDLING_CONNECTION_REQUEST;
+
+	RakNet::BitStream bitStream(sizeof(unsigned char) + sizeof(unsigned short) + sizeof(unsigned int) + sizeof(unsigned short) + sizeof(PlayerIndex));
+	bitStream.Write((unsigned char)ID_CONNECTION_REQUEST_ACCEPTED);
+	bitStream.Write(remoteSystem->playerId.binaryAddress);
+	bitStream.Write(remoteSystem->playerId.port);
+	bitStream.Write((PlayerIndex)GetIndexFromPlayerID(remoteSystem->playerId, true));
+	bitStream.Write(SAMPRakNet::GetToken());
+
+	SendImmediate((char*)bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, remoteSystem->playerId, false, false, RakNet::GetTime());
+}
+
+bool RakPeer::ParseConnectionAuthPacket(RakPeer::RemoteSystemStruct* remoteSystem, PlayerID playerId, unsigned char* data, int byteSize) {
+	if (playerId == UNASSIGNED_PLAYER_ID) {
+		return false;
+	}
+
+	char auth[MAX_AUTH_RESPONSE_LEN] = { 0 };
+	uint8_t responseLen = 0;
+
+	RakNet::BitStream bs(data, byteSize, false);
+	bs.IgnoreBits(8);
+	bs.Read<uint8_t>(responseLen);
+	if (responseLen < sizeof(auth) && bs.Read(auth, responseLen)) {
+		StringView authStr(auth, responseLen);
+		if (authStr == "NPC") {
+			remoteSystem->sampData.authType = SAMPRakNet::AuthType_NPC;
+			AcceptConnectionRequest(remoteSystem);
+			return true;
+		}
+		else if (SAMPRakNet::CheckAuth(remoteSystem->sampData.authIndex, authStr)) {
+			remoteSystem->sampData.authType = SAMPRakNet::AuthType_Player;
+			AcceptConnectionRequest(remoteSystem);
+			return true;
+		}
+	}
+
+	remoteSystem->connectMode = RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
+	return true;
+}
+
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::OnConnectionRequest( RakPeer::RemoteSystemStruct *remoteSystem, unsigned char *AESKey, bool setAESKey )
 {
 	// Already handled by caller
 	//if ( AllowIncomingConnections() )
 	{
-#ifdef __USE_IO_COMPLETION_PORTS
-		unsigned index;
-
-		// remoteSystemList in network thread
-		for ( index = 0; index < maximumNumberOfPeers; index++ )
-		//for ( index = 0; index < remoteSystemListSize; index++ )
-			if ( remoteSystemList + index == remoteSystem )
-				break;
-
-		if ( SetupIOCompletionPortSocket( index ) == false )
-		{
-			// Socket error
-			RakAssert( 0 );
-			return ;
-		}
-#endif
-
-		RakNet::BitStream bitStream(sizeof(unsigned char)+sizeof(unsigned short)+sizeof(unsigned int)+sizeof(unsigned short)+sizeof(PlayerIndex));
-		bitStream.Write((unsigned char)ID_CONNECTION_REQUEST_ACCEPTED);
-//#ifdef __USE_IO_COMPLETION_PORTS
-//		bitStream.Write((unsigned short)myPlayerId.port + ( unsigned short ) index + ( unsigned short ) 1);
-//#else
-//		bitStream.Write((unsigned short)myPlayerId.port);
-//#endif
-		bitStream.Write(remoteSystem->playerId.binaryAddress);
-		bitStream.Write(remoteSystem->playerId.port);
-		bitStream.Write(( PlayerIndex ) GetIndexFromPlayerID( remoteSystem->playerId, true ));
-		bitStream.Write(SAMPRakNet::GetToken());
-
+		auto authData = SAMPRakNet::GenerateAuth();
+		remoteSystem->sampData.authIndex = authData.first;
+		RakNet::BitStream bitStream;
+		bitStream.Write<unsigned char>(ID_AUTH_KEY);
+		bitStream.Write<unsigned char>(authData.second.size() + 1);
+		bitStream.Write(authData.second.data(), authData.second.size() + 1);
 
 		SendImmediate((char*)bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, remoteSystem->playerId, false, false, RakNet::GetTime());
 
@@ -4541,7 +4559,7 @@ namespace RakNet
 							ParseConnectionRequestPacket(remoteSystem, playerId, (const char*)data, byteSize);
 							delete [] data;
 						}
-						else
+						else if ((unsigned char)(data)[0] != ID_AUTH_KEY || !ParseConnectionAuthPacket(remoteSystem, playerId, data, byteSize))
 						{
 							CloseConnectionInternal( playerId, false, true, 0 );
 	#ifdef _DO_PRINTF

@@ -439,6 +439,9 @@ namespace RakNet
 		/// Returns if you previously called ApplyNetworkSimulator
 		/// \return If you previously called ApplyNetworkSimulator
 		virtual bool IsNetworkSimulatorActive( void )=0;
+
+		/// Get SAMP data for a player from their ID
+		virtual SAMPRakNet::RemoteSystemData GetSAMPDataFromPlayerID(const PlayerID playerId) = 0;
 	};
 }
 
