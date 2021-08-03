@@ -2745,8 +2745,8 @@ bool RakPeer::ParseConnectionAuthPacket(RakPeer::RemoteSystemStruct* remoteSyste
 	bs.IgnoreBits(8);
 	bs.Read<uint8_t>(responseLen);
 	if (responseLen < sizeof(auth) && bs.Read(auth, responseLen)) {
-		StringView authStr(auth, responseLen);
-		if (authStr == "NPC") {
+		StringView authStr(auth, responseLen-1);
+		if (authStr == "NPC\0") {
 			remoteSystem->sampData.authType = SAMPRakNet::AuthType_NPC;
 			AcceptConnectionRequest(remoteSystem);
 			return true;
