@@ -22,11 +22,28 @@ typedef int SOCKET;
 #define MAXIMUM_MTU_SIZE 1500
 #endif
 
+#define MAX_AUTH_RESPONSE_LEN (64)
+
 #include "sdk.hpp"
 
 class SAMPRakNet
 {
 public:
+	enum AuthType {
+		AuthType_Invalid,
+		AuthType_Player,
+		AuthType_NPC
+	};
+
+	struct RemoteSystemData {
+		uint8_t authIndex;
+		AuthType authType;
+		bool loggedOn;
+
+		RemoteSystemData() : authIndex(0), authType(AuthType_Invalid), loggedOn(false)
+		{}
+	};
+
 	static void ServerCoreInit(ICore * c) {
 		core = c;
 	}
@@ -41,6 +58,9 @@ public:
 	static void SetToken(uint32_t token) { token_ = token; }
 
 	static void HandleQuery(SOCKET instance, int size, const sockaddr_in & client, char const * buf);
+
+	static Pair<uint8_t, StringView> GenerateAuth();
+	static bool CheckAuth(uint8_t index, StringView auth);
 
 private:
 	static uint8_t

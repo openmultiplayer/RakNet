@@ -447,6 +447,9 @@ namespace RakNet
 		/// \return If you previously called ApplyNetworkSimulator
 		virtual bool IsNetworkSimulatorActive( void ) override;
 
+		/// Return the SAMPRakNet RemoteSystemData for a player ID
+		virtual SAMPRakNet::RemoteSystemData GetSAMPDataFromPlayerID(const PlayerID playerId) override;
+
 	private:
 		unsigned int seed, nextSeed;
 		RakNetTime broadcastPingsTime, nextSeedUpdate;

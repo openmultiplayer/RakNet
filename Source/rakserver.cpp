@@ -464,6 +464,16 @@ bool RakServer::IsNetworkSimulatorActive( void )
 	return RakPeer::IsNetworkSimulatorActive();
 }
 
+SAMPRakNet::RemoteSystemData RakServer::GetSAMPDataFromPlayerID(const PlayerID playerId)
+{
+	RemoteSystemStruct* remoteSystem = GetRemoteSystemFromPlayerID(playerId, false, false);
+
+	if (remoteSystem == nullptr)
+		return SAMPRakNet::RemoteSystemData();
+
+	return remoteSystem->sampData;
+}
+
 #ifdef _MSC_VER
 #pragma warning( pop )
 #endif
