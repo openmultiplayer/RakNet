@@ -383,7 +383,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 			return false;
 		for (i=0; i<incomingAcks.ranges.Size();i++)
 		{
-			if (incomingAcks.ranges[i].minIndex>incomingAcks.ranges[i].maxIndex)
+			if (incomingAcks.ranges[i].minIndex>incomingAcks.ranges[i].maxIndex || (incomingAcks.ranges[i].maxIndex == (RakNet::MessageNumberType)(0xFFFFFFFF)))
 			{
 				RakAssert(incomingAcks.ranges[i].minIndex<=incomingAcks.ranges[i].maxIndex);
 				return false;
