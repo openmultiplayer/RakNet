@@ -2745,8 +2745,8 @@ bool RakPeer::ParseConnectionAuthPacket(RakPeer::RemoteSystemStruct* remoteSyste
 	bs.IgnoreBits(8);
 	bs.Read<uint8_t>(responseLen);
 	if (responseLen < sizeof(auth) && bs.Read(auth, responseLen)) {
-		StringView authStr(auth, responseLen-1);
-		if (authStr == "NPC\0") {
+		StringView authStr(auth, responseLen);
+		if (authStr == StringView("NPC", 4)) {
 			remoteSystem->sampData.authType = SAMPRakNet::AuthType_NPC;
 			AcceptConnectionRequest(remoteSystem);
 			return true;
@@ -4141,7 +4141,7 @@ namespace RakNet
 			for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
 				rakPeer->messageHandlerList[i]->OnDirectSocketReceive(data, length*8, playerId);
 
-			if (length > 512)
+			if (length > 541)
 			{
 	#if !defined(_COMPATIBILITY_1)
 				// Flood attack?  Unknown systems should never send more than a small amount of data. Do a short ban
@@ -4561,15 +4561,23 @@ namespace RakNet
 						}
 						else if ((unsigned char)(data)[0] != ID_AUTH_KEY || !ParseConnectionAuthPacket(remoteSystem, playerId, data, byteSize))
 						{
-							CloseConnectionInternal( playerId, false, true, 0 );
-	#ifdef _DO_PRINTF
-							printf("Temporarily banning %i:%i for sending nonsense data\n", playerId.binaryAddress, playerId.port);
-	#endif
+							if ((unsigned char)(data)[0] == ID_RPC && remoteSystem->sampData.unverifiedRPCs++ < MAX_UNVERIFIED_RPCS)
+							{
+								// Ignore RPC packet
+								delete[] data;
+							}
+							else
+							{
+								CloseConnectionInternal(playerId, false, true, 0);
+#ifdef _DO_PRINTF
+								printf("Temporarily banning %i:%i for sending nonsense data\n", playerId.binaryAddress, playerId.port);
+#endif
 
-	#if !defined(_COMPATIBILITY_1)
-							AddToBanList(PlayerIDToDottedIP(playerId), remoteSystem->reliabilityLayer.GetTimeoutTime());
-	#endif
-							delete [] data;
+#if !defined(_COMPATIBILITY_1)
+								AddToBanList(PlayerIDToDottedIP(playerId), remoteSystem->reliabilityLayer.GetTimeoutTime());
+#endif
+								delete[] data;
+							}
 						}
 					}
 					else
