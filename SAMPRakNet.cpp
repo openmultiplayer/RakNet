@@ -20,6 +20,8 @@ ICore *
 	SAMPRakNet::
 	core = nullptr;
 
+unsigned int SAMPRakNet::timeout_ = 10000;
+
 uint16_t
 	SAMPRakNet::
 	GetPort()
@@ -423,4 +425,18 @@ Pair<uint8_t, StringView> SAMPRakNet::GenerateAuth() {
 
 bool SAMPRakNet::CheckAuth(uint8_t index, StringView auth) {
 	return AuthTable[index].recv == auth;
+}
+
+uint16_t cookies[2][256];
+
+void SAMPRakNet::SeedCookie() {
+	for (int i = 0; i < 256; ++i) {
+		cookies[0][i] = rand() % (USHRT_MAX + 1);
+		cookies[1][i] = rand() % (USHRT_MAX + 1);
+	}
+}
+
+uint16_t SAMPRakNet::GetCookie(unsigned int address) {
+	const uint8_t* addressSplit = (const uint8_t*)&address;
+	return (cookies[0][addressSplit[0]] | cookies[1][addressSplit[3]] << 8) ^ ((addressSplit[1] << 8) | addressSplit[2]);
 }

@@ -48,6 +48,7 @@ public:
 
 	static void ServerCoreInit(ICore * c) {
 		core = c;
+		srand(time(nullptr));
 	}
 
 	static uint8_t * Decrypt(uint8_t const * src, int len);
@@ -57,12 +58,18 @@ public:
 	static void SetPort(uint16_t value);
 
 	static uint32_t GetToken() { return token_; }
-	static void SetToken(uint32_t token) { token_ = token; }
+	static void SeedToken() { token_ = rand(); }
 
 	static void HandleQuery(SOCKET instance, int size, const sockaddr_in & client, char const * buf);
 
 	static Pair<uint8_t, StringView> GenerateAuth();
 	static bool CheckAuth(uint8_t index, StringView auth);
+
+	static void SeedCookie();
+	static uint16_t GetCookie(unsigned int address);
+
+	static void SetTimeout(unsigned int timeout) { timeout_ = timeout; }
+	static unsigned int GetTimeout() { return timeout_; }
 
 private:
 	static uint8_t
@@ -76,6 +83,8 @@ private:
 
 	static ICore *
 		core;
+
+	static unsigned int timeout_;
 };
 
 class SAMPRakNetChecksumException : public std::exception

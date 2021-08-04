@@ -22,6 +22,8 @@
 #include "Rand.h"
 #include "PacketEnumerations.h"
 
+#include "../SAMPRakNet.hpp"
+
 // alloca
 #ifdef _COMPATIBILITY_1
 #elif defined(_WIN32)
@@ -89,7 +91,7 @@ ReliabilityLayer::ReliabilityLayer() : updateBitStream( DEFAULT_MTU_SIZE )   // 
 	// Wait longer to disconnect in debug so I don't get disconnected while tracing
 	timeoutTime=30000;
 #else
-	timeoutTime=10000;
+	timeoutTime=SAMPRakNet::GetTimeout();
 #endif
 
 #ifndef _RELEASE
