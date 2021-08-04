@@ -26,6 +26,8 @@ typedef int SOCKET;
 
 #include "sdk.hpp"
 
+#define MAX_UNVERIFIED_RPCS (5)
+
 class SAMPRakNet
 {
 public:
@@ -38,9 +40,9 @@ public:
 	struct RemoteSystemData {
 		uint8_t authIndex;
 		AuthType authType;
-		bool loggedOn;
+		uint8_t unverifiedRPCs;
 
-		RemoteSystemData() : authIndex(0), authType(AuthType_Invalid), loggedOn(false)
+		RemoteSystemData() : authIndex(0), authType(AuthType_Invalid), unverifiedRPCs(0)
 		{}
 	};
 
