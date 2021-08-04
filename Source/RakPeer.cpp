@@ -3900,7 +3900,6 @@ namespace RakNet
 			for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
 				rakPeer->messageHandlerList[i]->OnDirectSocketSend((char*)&c, 16, playerId);
 			SocketLayer::Instance()->SendTo( rakPeer->connectionSocket, (char*)&c, 2, playerId.binaryAddress, playerId.port );
-
 			return;
 		}
 	#endif
@@ -4005,7 +4004,7 @@ namespace RakNet
 			return;
 		}
 		// Connecting to a system we are already connected to.
-		else if ((unsigned char)(data)[0] == (unsigned char) ID_CONNECTION_ATTEMPT_FAILED && length <= sizeof(unsigned char)*2)
+		else if ((unsigned char)(data)[0] == (unsigned char)ID_CONNECTION_ATTEMPT_FAILED && length <= sizeof(unsigned char) * 2)
 		{
 			// Remove the connection attempt from the buffered commands
 			RakPeer::RequestedConnectionStruct *rcsFirst, *rcs;
@@ -4054,6 +4053,16 @@ namespace RakNet
 		// Therefore, this datagram must be under 17 bits - otherwise it may be normal network traffic as the min size for a raknet send is 17 bits
 		else if ((unsigned char)(data)[0] == ID_OPEN_CONNECTION_REQUEST && length == sizeof(unsigned char)*3)
 		{
+			if ((*(uint16_t*)(data + 1) ^ 0x6969/* Petarded [S04E06] */) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress))) {
+#ifdef _DO_PRINTF
+				printf("%i:%i requests connection cookie\n", binaryAddress, port);
+#endif
+				char c[3];
+				c[0] = ID_OPEN_CONNECTION_COOKIE;
+				*(uint16_t*)&c[1] = (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress));
+				SocketLayer::Instance()->SendTo(rakPeer->connectionSocket, (const char*)&c, 3, playerId.binaryAddress, playerId.port);
+				return;
+			}
 			for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
 				rakPeer->messageHandlerList[i]->OnDirectSocketReceive(data, length*8, playerId);
 
@@ -4832,7 +4841,6 @@ namespace RakNet
 								inBitStream.Read(externalID.port);
 								inBitStream.Read(playerIndex);
 								inBitStream.Read(token);
-								SAMPRakNet::SetToken(token);
 
 								// Find a free remote system struct to use
 								//						RakNet::BitStream casBitS(data, byteSize, false);

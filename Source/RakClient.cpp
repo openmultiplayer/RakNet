@@ -141,7 +141,6 @@ Packet* RakClient::Receive( void )
 			inBitStream.IgnoreBits(8 * sizeof(unsigned short)); //inBitStream.Read(externalID.port);			
 			inBitStream.Read(playerIndex);
 			inBitStream.Read(token);
-			SAMPRakNet::SetToken(token);
 
 			localPlayerIndex = playerIndex;
 			packet->playerIndex = playerIndex;
