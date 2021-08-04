@@ -64,6 +64,7 @@ public:
 	static Pair<uint8_t, StringView> GenerateAuth();
 	static bool CheckAuth(uint8_t index, StringView auth);
 
+	static int GetCookie() { return cookieRand; }
 private:
 	static uint8_t
 		buffer_[MAXIMUM_MTU_SIZE];
@@ -76,6 +77,10 @@ private:
 
 	static ICore *
 		core;
+
+	static int
+		cookieRand;
+
 };
 
 class SAMPRakNetChecksumException : public std::exception

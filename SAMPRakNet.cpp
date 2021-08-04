@@ -20,6 +20,10 @@ ICore *
 	SAMPRakNet::
 	core = nullptr;
 
+int
+	SAMPRakNet::
+	cookieRand;
+
 uint16_t
 	SAMPRakNet::
 	GetPort()
