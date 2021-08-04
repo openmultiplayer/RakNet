@@ -65,6 +65,7 @@ public:
 	static bool CheckAuth(uint8_t index, StringView auth);
 
 	static int GetCookie() { return cookieRand; }
+	static void SetCookie(int cookie) { cookieRand = cookie; }
 private:
 	static uint8_t
 		buffer_[MAXIMUM_MTU_SIZE];
