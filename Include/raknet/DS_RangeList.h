@@ -25,9 +25,9 @@ namespace RakNet
 		{
 			if (a<b.minIndex)
 				return -1;
-			if (a==b.minIndex)
-				return 0;
-			return 1;
+			if (a > b.maxIndex)
+				return 1;
+			return 0;
 		}
 
 		template <class range_type>
