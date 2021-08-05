@@ -25,9 +25,9 @@ namespace RakNet
 		{
 			if (a<b.minIndex)
 				return -1;
-			if (a>b.maxIndex)
-				return 1;
-			return 0;
+			if (a==b.minIndex)
+				return 0;
+			return 1;
 		}
 
 		template <class range_type>
@@ -38,16 +38,12 @@ namespace RakNet
 			~RangeList();
 			void Insert(range_type index);
 			void Clear(void);
-			bool IsWithinRange(range_type value) const;
 			unsigned Size(void);
 			unsigned RangeSum(void);
 			unsigned Serialize(RakNet::BitStream *in, int maxBits, bool clearSerialized);
 			bool Deserialize(RakNet::BitStream *out);
 
 			OrderedList<range_type, RangeNode<range_type> , RangeNodeComp<range_type> > ranges;
-
-		private:
-			bool DeserializeSingleRange(RakNet::BitStream* out, range_type& min, range_type& max);
 		};
 
 		template <class range_type>
@@ -100,51 +96,27 @@ namespace RakNet
 			ranges.Clear();
 			unsigned short count;
 			out->ReadCompressed(count);
-			range_type absMin;
-			range_type min, max;
+			unsigned short i;
+			range_type min,max;
+			bool maxEqualToMin;
 
-			if (count == 0) {
-				return true;
-			}
-
-			if (!DeserializeSingleRange(out, min, max)) {
-				return false;
-			}
-			ranges.InsertAtEnd(RangeNode<range_type>(min, max));
-
-			for (unsigned short i = 1; i < count; i++)
+			for (i=0; i < count; i++)
 			{
-				absMin = max;
-
-				if (!DeserializeSingleRange(out, min, max)) {
+				out->Read(maxEqualToMin);
+				if (out->Read(min)==false)
 					return false;
+				if (maxEqualToMin==false)
+				{
+					if (out->Read(max)==false)
+						return false;
+					if (max<min)
+						return false;
 				}
-				if (min <= absMin) {
-					return false;
-				}
-				ranges.InsertAtEnd(RangeNode<range_type>(min, max));
+				else
+					max=min;
+
+				ranges.InsertAtEnd(RangeNode<range_type>(min,max));
 			}
-			return true;
-		}
-
-		template <class range_type>
-		bool RangeList<range_type>::DeserializeSingleRange(RakNet::BitStream* out, range_type& min, range_type& max)
-		{
-			unsigned char maxEqualToMin;
-
-			out->Read(maxEqualToMin);
-			if (out->Read(min) == false)
-				return false;
-			if (maxEqualToMin == false)
-			{
-				if (out->Read(max) == false)
-					return false;
-				if (max < min)
-					return false;
-			}
-			else
-				max = min;
-
 			return true;
 		}
 
@@ -226,15 +198,6 @@ namespace RakNet
 		void RangeList<range_type>::Clear(void)
 		{
 			ranges.Clear();
-		}
-
-		template <class range_type>
-		bool RangeList<range_type>::IsWithinRange(range_type value) const
-		{
-			bool objectExists;
-			// not interested in the return value
-			(void)ranges.GetIndexFromKey(value, &objectExists);
-			return objectExists;
 		}
 
 		template <class range_type>
