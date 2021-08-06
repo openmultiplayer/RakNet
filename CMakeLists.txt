@@ -37,6 +37,8 @@ set(RAKNET_SOURCES
 
 add_library(raknet STATIC ${RAKNET_SOURCES})
 
+set_property(TARGET raknet PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 target_compile_definitions(raknet
 	PUBLIC
 		-DRAKNET_LEGACY
