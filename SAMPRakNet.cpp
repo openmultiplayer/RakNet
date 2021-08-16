@@ -4,23 +4,13 @@
 #include <climits>
 #include "SAMPRakNet.hpp"
 
-uint8_t
-	SAMPRakNet::
-	buffer_[MAXIMUM_MTU_SIZE];
-
-uint32_t
-	SAMPRakNet::
-	token_;
-
-uint16_t
-	SAMPRakNet::
-	portNumber = 7777;
-
-ICore *
-	SAMPRakNet::
-	core = nullptr;
-
+uint8_t SAMPRakNet::buffer_[MAXIMUM_MTU_SIZE];
+uint32_t SAMPRakNet::token_;
+uint16_t SAMPRakNet::portNumber = 7777;
+Query* SAMPRakNet::query_ = nullptr;
 unsigned int SAMPRakNet::timeout_ = 10000;
+bool SAMPRakNet::logCookies_ = false;
+ICore* SAMPRakNet::core_ = nullptr;
 
 uint16_t
 	SAMPRakNet::
@@ -140,20 +130,14 @@ void
 	SAMPRakNet::
 	HandleQuery(SOCKET instance, int size, const sockaddr_in & client, char const * buf)
 {
-	if (core == nullptr) {
+	if (query_ == nullptr) {
 		return;
 	}
 
-	const FlatPtrHashSet<INetwork>& networks = core->getNetworks();
-	for (INetwork* network : networks) {
-		ENetworkType type = network->getNetworkType();
-		if (type == ENetworkType_RakNetLegacy) {
-			int outputLength = 0;
-			char output[4092];
-			outputLength = network->handleQuery(buf, output);
-			sendto(instance, output, outputLength, 0, reinterpret_cast<const sockaddr *>(&client), size);
-		}
-	}
+	int outputLength = 0;
+	char output[4092];
+	outputLength = query_->handleQuery(buf, output, client.sin_addr.S_un.S_addr);
+	sendto(instance, output, outputLength, 0, reinterpret_cast<const sockaddr*>(&client), size);
 }
 
 struct AuthEntry {

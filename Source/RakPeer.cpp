@@ -4055,7 +4055,9 @@ namespace RakNet
 		{
 			if ((*(uint16_t*)(data + 1) ^ 0x6969/* Petarded [S04E06] */) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress))) {
 #ifdef _DO_PRINTF
-				printf("%i:%i requests connection cookie\n", binaryAddress, port);
+				if (SAMPRakNet::ShouldLogCookies()) {
+					SAMPRakNet::GetCore()->printLn("%i:%i requests connection cookie", binaryAddress, port);
+				}
 #endif
 				char c[3];
 				c[0] = ID_OPEN_CONNECTION_COOKIE;
@@ -4255,7 +4257,7 @@ namespace RakNet
 					if ( errorCode != 0 && endThreads == false )
 					{
 	#ifdef _DO_PRINTF
-						printf( "Server RecvFrom critical failure!\n" );
+						SAMPRakNet::GetCore()->printLn( "Server RecvFrom critical failure!" );
 	#endif
 						// Some kind of critical error
 						// peer->isRecvfromThreadActive=false;
@@ -4478,7 +4480,7 @@ namespace RakNet
 					// else connection shutting down, don't bother telling the user
 
 	#ifdef _DO_PRINTF
-					printf("Connection dropped for player %i:%i\n", playerId.binaryAddress, playerId.port);
+					SAMPRakNet::GetCore()->printLn("Connection dropped for player %i:%i", playerId.binaryAddress, playerId.port);
 	#endif
 					CloseConnectionInternal( playerId, false, true, 0 );
 					continue;
@@ -4579,7 +4581,7 @@ namespace RakNet
 							{
 								CloseConnectionInternal(playerId, false, true, 0);
 #ifdef _DO_PRINTF
-								printf("Temporarily banning %i:%i for sending nonsense data\n", playerId.binaryAddress, playerId.port);
+								SAMPRakNet::GetCore()->printLn("Temporarily banning %i:%i for sending nonsense data", playerId.binaryAddress, playerId.port);
 #endif
 
 #if !defined(_COMPATIBILITY_1)
@@ -4909,7 +4911,7 @@ namespace RakNet
 								// Tell the remote system the connection failed
 								NotifyAndFlagForDisconnect(playerId, true, 0);
 	#ifdef _DO_PRINTF
-								printf( "Error: Got a connection accept when we didn't request the connection.\n" );
+								SAMPRakNet::GetCore()->printLn( "Error: Got a connection accept when we didn't request the connection." );
 	#endif
 								delete [] data;
 							}
