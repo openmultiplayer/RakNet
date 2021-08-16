@@ -136,7 +136,13 @@ void
 
 	int outputLength = 0;
 	char output[4092];
-	outputLength = query_->handleQuery(buf, output, client.sin_addr.S_un.S_addr);
+	outputLength = query_->handleQuery(buf, output,
+#if defined _WIN32 || defined WIN32
+		client.sin_addr.S_un.S_addr
+#else
+		client.sin_addr.s_addr
+#endif
+	);
 	sendto(instance, output, outputLength, 0, reinterpret_cast<const sockaddr*>(&client), size);
 }
 
