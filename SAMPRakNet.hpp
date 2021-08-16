@@ -24,7 +24,7 @@ typedef int SOCKET;
 
 #define MAX_AUTH_RESPONSE_LEN (64)
 
-#include "sdk.hpp"
+#include "../../Server/Components/LegacyNetwork/Query/query.hpp"
 
 #define MAX_UNVERIFIED_RPCS (5)
 
@@ -46,8 +46,8 @@ public:
 		{}
 	};
 
-	static void ServerCoreInit(ICore * c) {
-		core = c;
+	static void Init(ICore* core) {
+		core_ = core;
 		srand(time(nullptr));
 	}
 
@@ -71,20 +71,21 @@ public:
 	static void SetTimeout(unsigned int timeout) { timeout_ = timeout; }
 	static unsigned int GetTimeout() { return timeout_; }
 
+	static void SetQuery(Query* query) { query_ = query; }
+
+	static void SetLogCookies(bool log) { logCookies_ = log; }
+	static bool ShouldLogCookies() { return logCookies_; }
+
+	static ICore* GetCore() { return core_; }
+
 private:
-	static uint8_t
-		buffer_[MAXIMUM_MTU_SIZE];
-
-	static uint32_t
-		token_;
-
-	static uint16_t
-		portNumber;
-
-	static ICore *
-		core;
-
+	static uint8_t buffer_[MAXIMUM_MTU_SIZE];
+	static uint32_t token_;
+	static uint16_t portNumber;
+	static Query *query_;
 	static unsigned int timeout_;
+	static bool logCookies_;
+	static ICore* core_;
 };
 
 class SAMPRakNetChecksumException : public std::exception
