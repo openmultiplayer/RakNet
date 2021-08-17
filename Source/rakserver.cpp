@@ -404,9 +404,9 @@ PlayerID RakServer::GetPlayerIDFromIndex( int index )
 	return RakPeer::GetPlayerIDFromIndex( index );
 }
 
-void RakServer::AddToBanList( const char *IP )
+void RakServer::AddToBanList( const char *IP, RakNetTime milliseconds )
 {
-	RakPeer::AddToBanList( IP );
+	RakPeer::AddToBanList( IP, milliseconds );
 }
 
 void RakServer::RemoveFromBanList( const char *IP )

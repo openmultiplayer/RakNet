@@ -382,7 +382,7 @@ namespace RakNet
 
 		/// Bans an IP from connecting.  Banned IPs persist between connections.
 		/// param[in] IP Dotted IP address. Can use * as a wildcard, such as 128.0.0.* will banAll IP addresses starting with 128.0.0
-		void AddToBanList( const char *IP ) override;
+		void AddToBanList( const char *IP, RakNetTime milliseconds=0 ) override;
 
 		/// Allows a previously banned IP to connect. 
 		/// param[in] Dotted IP address. Can use * as a wildcard, such as 128.0.0.* will banAll IP addresses starting with 128.0.0
