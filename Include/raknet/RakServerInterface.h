@@ -90,7 +90,7 @@ namespace RakNet
 		/// \param[in] playerId Who to send to.  Specify UNASSIGNED_PLAYER_ID to designate all connected systems.
 		/// \param[in] broadcast Whether to send to everyone or not.  If true, then the meaning of \a playerId changes to mean who NOT to send to.
 		/// \return Returns false on failure, true on success	
-		virtual bool Send( RakNet::BitStream *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )=0;
+		virtual bool Send( RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )=0;
 		
 		/// Gets a packet from the incoming packet queue.
 		/// Use DeallocatePacket() to deallocate the packet after you are done with it.
@@ -247,7 +247,7 @@ namespace RakNet
 		/// \param[in] networkID For static functions, pass UNASSIGNED_NETWORK_ID.  For member functions, you must derive from NetworkIDGenerator and pass the value returned by NetworkIDGenerator::GetNetworkID for that object.
 		/// \param[in] replyFromTarget If 0, this function is non-blocking.  Otherwise it will block while waiting for a reply from the target procedure, which is remtely written to RPCParameters::replyToSender and copied to replyFromTarget.  The block will return early on disconnect or if the sent packet is unreliable and more than 3X the ping has elapsed.
 		/// \return True on a successful packet send (this does not indicate the recipient performed the call), false on failure
-		virtual bool RPC( RPCID uniqueID, RakNet::BitStream *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )=0;
+		virtual bool RPC( RPCID uniqueID, RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )=0;
 
 		/// Enables or disables frequency table tracking.  This is required to get a frequency table, which is used in GenerateCompressionLayer()
 		/// This value persists between connect calls and defaults to false (no frequency tracking)

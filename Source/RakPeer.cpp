@@ -865,7 +865,7 @@ bool RakPeer::Send( const char *data, const int length, PacketPriority priority,
 	return true;
 }
 
-bool RakPeer::Send( RakNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )
+bool RakPeer::Send( RakNet::BitStream const * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )
 {
 
 	RakAssert( bitStream->GetNumberOfBytesUsed() > 0 );
@@ -1433,7 +1433,7 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 #ifdef _MSC_VER
 #pragma warning( disable : 4701 ) // warning C4701: local variable <variable name> may be used without having been initialized
 #endif
-bool RakPeer::RPC( RPCID  uniqueID, RakNet::BitStream *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )
+bool RakPeer::RPC( RPCID  uniqueID, RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )
 {
 	if (bitStream)
 		return RPC(uniqueID, (const char*) bitStream->GetData(), bitStream->GetNumberOfBitsUsed(), priority, reliability, orderingChannel, playerId, broadcast, shiftTimestamp, networkID, replyFromTarget);
