@@ -104,7 +104,7 @@ bool RakServer::Send( const char *data, const int length, PacketPriority priorit
 	return RakPeer::Send( data, length, priority, reliability, orderingChannel, playerId, broadcast );
 }
 
-bool RakServer::Send( RakNet::BitStream *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )
+bool RakServer::Send( RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )
 {
 	return RakPeer::Send( bitStream, priority, reliability, orderingChannel, playerId, broadcast );
 }
@@ -272,7 +272,7 @@ bool RakServer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, 
 	return RakPeer::RPC( uniqueID, data, bitLength, priority, reliability, orderingChannel, playerId, broadcast, shiftTimestamp, networkID, replyFromTarget );
 }
 
-bool RakServer::RPC( RPCID  uniqueID, RakNet::BitStream *parameters, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )
+bool RakServer::RPC( RPCID  uniqueID, RakNet::BitStream const *parameters, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )
 {
 	return RakPeer::RPC( uniqueID, parameters, priority, reliability, orderingChannel, playerId, broadcast, shiftTimestamp, networkID, replyFromTarget );
 }
