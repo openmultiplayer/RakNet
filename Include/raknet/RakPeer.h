@@ -163,7 +163,7 @@ namespace RakNet
 		/// \param[in] playerId Who to send this packet to, or in the case of broadcasting who not to send it to.  Use UNASSIGNED_PLAYER_ID to specify none
 		/// \param[in] broadcast True to send this packet to all connected systems. If true, then playerId specifies who not to send the packet to.
 		/// \return False if we are not connected to the specified recipient.  True otherwise
-		bool Send( RakNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast ) override;
+		bool Send( RakNet::BitStream const * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast ) override;
 
 		/// Gets a message from the incoming message queue.
 		/// Use DeallocatePacket() to deallocate the message after you are done with it.
@@ -230,7 +230,7 @@ namespace RakNet
 		/// \param[in] networkID For static functions, pass UNASSIGNED_NETWORK_ID.  For member functions, you must derive from NetworkIDGenerator and pass the value returned by NetworkIDGenerator::GetNetworkID for that object.
 		/// \param[in] replyFromTarget If 0, this function is non-blocking.  Otherwise it will block while waiting for a reply from the target procedure, which should be remotely written to RPCParameters::replyToSender and copied to replyFromTarget.  The block will return early on disconnect or if the sent packet is unreliable and more than 3X the ping has elapsed.
 		/// \return True on a successful packet send (this does not indicate the recipient performed the call), false on failure
-		bool RPC( RPCID  uniqueID, RakNet::BitStream *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget ) override;
+		bool RPC( RPCID  uniqueID, RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget ) override;
 		
 		// -------------------------------------------------------------------------------------------- Connection Management Functions--------------------------------------------------------------------------------------------
 		/// Close the connection to another host (if we initiated the connection it will disconnect, if they did it will kick them out).
