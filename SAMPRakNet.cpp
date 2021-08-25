@@ -100,9 +100,9 @@ uint8_t *
 		// Alternate the mask every byte.
 		cur = (uint8_t)src[i];
 		checksum ^= cur & 0xAA;
+		cur = key[cur];
 		if (i & 1)
 			cur ^= port;
-		cur = key[cur];
 		buffer_[i + 1] = cur;
 	}
 	buffer_[0] = checksum;
