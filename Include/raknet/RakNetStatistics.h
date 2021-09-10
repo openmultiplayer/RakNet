@@ -103,6 +103,8 @@ namespace RakNet
 		unsigned invalidMessagesReceived;
 		///  Number of data messages (anything other than an ack) received that are duplicate
 		unsigned duplicateMessagesReceived;
+		///  Number of messages received in one second
+		unsigned perSecondReceivedMsgCount;
 		///  Number of messages waiting for reassembly
 		unsigned messagesWaitingForReassembly;
 		///  Number of messages in reliability output queue
@@ -111,6 +113,8 @@ namespace RakNet
 		double bitsPerSecond;
 		///  connection start time
 		RakNetTime connectionStartTime;
+		///  Last time raknet stored per second received messages
+		RakNetTimeNS lastRecvMsgProcess;
 
 		RakNetStatisticsStruct operator +=(const RakNetStatisticsStruct& other)
 		{
