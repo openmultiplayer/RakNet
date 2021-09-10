@@ -503,7 +503,9 @@ namespace RakNet
 		/// \brief All the information representing a connected system system
 		struct RemoteSystemStruct
 		{
-			bool isActive; // Is this structure in use?
+			bool isActive; /// Is this structure in use?
+			RakNetTime lastRecvMsgProcess;
+			unsigned int receivedMsgCount;
 			PlayerID playerId;  /// The remote system associated with this reliability layer
 			PlayerID myExternalPlayerId;  /// Your own IP, as reported by the remote system
 			ReliabilityLayer reliabilityLayer;  /// The reliability layer associated with this player

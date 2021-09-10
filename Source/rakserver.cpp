@@ -113,6 +113,26 @@ Packet* RakServer::Receive( void )
 {
 	Packet * packet = RakPeer::Receive();
 
+	// store received messages per second
+
+	if (RakPeer::IsActive() && packet)
+	{
+		RakNetTime time = RakNet::GetTime();
+		RemoteSystemStruct* remoteSystem = GetRemoteSystemFromPlayerID(packet->playerId);
+		if (remoteSystem) 
+		{
+			if (time - remoteSystem->lastRecvMsgProcess > 1000)
+			{
+				RakNetStatisticsStruct* stats = remoteSystem->reliabilityLayer.GetStatistics();
+				if (stats)
+				{
+					remoteSystem->lastRecvMsgProcess = time;
+					remoteSystem->receivedMsgCount = stats->messagesReceived;
+				}
+			}
+		}
+	}
+
 	// This is just a regular time based update.  Nowhere else good to put it
 	if ( RakPeer::IsActive() && synchronizedRandomInteger )
 	{
