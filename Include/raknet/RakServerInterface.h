@@ -22,7 +22,8 @@
 #include "PacketPriority.h"
 #include "RakPeerInterface.h"
 #include "BitStream.h"
-#include "RakNetStatistics.h" 
+#include "RakNetStatistics.h"
+#include "RakPeer.h"
 #include "Export.h"
 
 namespace RakNet
@@ -442,6 +443,9 @@ namespace RakNet
 
 		/// Get SAMP data for a player from their ID
 		virtual SAMPRakNet::RemoteSystemData GetSAMPDataFromPlayerID(const PlayerID playerId) = 0;
+
+		/// Get Remote System data for a player from their ID
+		virtual RakPeer::RemoteSystemStruct* GetRemoteSystemFromPlayerID(const PlayerID playerId) = 0;
 	};
 }
 

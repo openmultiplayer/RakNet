@@ -345,7 +345,7 @@ void RakServer::SetStaticClientData( const PlayerID playerId, const char *data, 
 // This will read the data from playerChangedId and send it to playerToSendToId
 void RakServer::ChangeStaticClientData( const PlayerID playerChangedId, PlayerID playerToSendToId )
 {
-	RemoteSystemStruct * remoteSystem = GetRemoteSystemFromPlayerID( playerChangedId, false, true );
+	RemoteSystemStruct * remoteSystem = RakPeer::GetRemoteSystemFromPlayerID( playerChangedId, false, true );
 
 	if ( remoteSystem == 0 )
 		return ; // No such playerChangedId
@@ -464,9 +464,14 @@ bool RakServer::IsNetworkSimulatorActive( void )
 	return RakPeer::IsNetworkSimulatorActive();
 }
 
+RakPeer::RemoteSystemStruct* RakServer::GetRemoteSystemFromPlayerID(const PlayerID playerId)
+{
+	return RakPeer::GetRemoteSystemFromPlayerID(playerId, false, false);
+}
+
 SAMPRakNet::RemoteSystemData RakServer::GetSAMPDataFromPlayerID(const PlayerID playerId)
 {
-	RemoteSystemStruct* remoteSystem = GetRemoteSystemFromPlayerID(playerId, false, false);
+	RemoteSystemStruct* remoteSystem = RakPeer::GetRemoteSystemFromPlayerID(playerId, false, false);
 
 	if (remoteSystem == nullptr)
 		return SAMPRakNet::RemoteSystemData();
