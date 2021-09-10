@@ -451,7 +451,7 @@ namespace RakNet
 		virtual SAMPRakNet::RemoteSystemData GetSAMPDataFromPlayerID(const PlayerID playerId) override;
 
 		/// Get Remote System data for a player from their ID
-		virtual RakPeer::RemoteSystemStruct* RakServer::GetRemoteSystemFromPlayerID(const PlayerID playerId) override;
+		virtual RakPeer::RemoteSystemStruct* GetRemoteSystemFromPlayerID(const PlayerID playerId) override;
 
 	private:
 		unsigned int seed, nextSeed;
