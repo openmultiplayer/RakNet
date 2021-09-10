@@ -525,6 +525,11 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 			}
 
 			statistics.messagesReceived++;
+			if (time - statistics.lastRecvMsgProcess > 1000000)
+			{
+				statistics.lastRecvMsgProcess = time;
+				statistics.perSecondReceivedMsgCount = statistics.messagesReceived;
+			}
 
 			// If the allocated buffer is > DEFAULT_HAS_RECEIVED_PACKET_QUEUE_SIZE and it is 3x greater than the number of elements actually being used
 			if (hasReceivedPacketQueue.AllocationSize() > (unsigned int) DEFAULT_HAS_RECEIVED_PACKET_QUEUE_SIZE && hasReceivedPacketQueue.AllocationSize() > hasReceivedPacketQueue.Size() * 3)
