@@ -399,6 +399,11 @@ bool RakServer::RPC( RPCID  uniqueID, RakNet::BitStream const *parameters, Packe
 	return RakPeer::RPC( uniqueID, parameters, priority, reliability, orderingChannel, playerId, broadcast, shiftTimestamp, networkID, replyFromTarget );
 }
 
+bool RakServer::RPC(RPCID uniqueID, RakNet::BitStream const* parameters, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream* replyFromTarget)
+{
+	return RakPeer::RPC( uniqueID, parameters, priority, reliability, orderingChannel, players, playerCount, shiftTimestamp, networkID, replyFromTarget );
+}
+
 void RakServer::SetTrackFrequencyTable( bool b )
 {
 	RakPeer::SetCompileFrequencyTable( b );

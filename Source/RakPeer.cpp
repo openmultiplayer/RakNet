@@ -1429,6 +1429,138 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 	return true;	
 }
 
+bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )
+{
+	RakAssert( uniqueID );
+#if RPCID_STRING
+	RakAssert( uniqueID[ 0 ] );
+#endif
+	RakAssert(orderingChannel >=0 && orderingChannel < 32);
+
+	if ( uniqueID == 0 )
+		return false;
+
+#if RPCID_STRING
+	if ( strlen( uniqueID ) > 256 )
+	{
+
+		RakAssert( 0 );
+
+		return false; // Unique ID is too long
+	}
+#endif
+	if (replyFromTarget && blockOnRPCReply==true)
+	{
+		// TODO - this should be fixed eventually
+		// Prevent a bug where function A calls B (blocking) which calls C back on the sender, which calls D, and C is blocking.
+		// blockOnRPCReply is a shared variable so making it unset would unset both blocks, rather than the lowest on the callstack
+		// Fix by tracking which function the reply is for.
+		return false;
+	}
+
+	unsigned *sendList;
+//	bool callerAllocationDataUsed;
+	unsigned sendListSize;
+
+	// All this code modifies bcs->data and bcs->numberOfBitsToSend in order to transform an RPC request into an actual packet for SendImmediate
+#if RPCID_STRING
+	RPCIndex rpcIndex; // Index into the list of RPC calls so we know what number to encode in the packet
+#endif
+//	char *userData; // RPC ID (the name of it) and a pointer to the data sent by the user
+//	int extraBuffer; // How many data bytes were allocated to hold the RPC header
+	unsigned remoteSystemIndex, sendListIndex; // Iterates into the list of remote systems
+//	int dataBlockAllocationLength; // Total number of bytes to allocate for the packet
+//	char *writeTarget; // Used to hold either a block of allocated data or the externally allocated data
+
+	sendListSize=0;
+
+	if (playerCount==0)
+	{
+		return false;
+	}
+	else
+	{
+#if !defined(_COMPATIBILITY_1)
+		sendList=(unsigned *)alloca(sizeof(unsigned)*maximumNumberOfPeers);
+#else
+		sendList = new unsigned[maximumNumberOfPeers];
+#endif
+		int maxIndex = maximumNumberOfPeers > playerCount ? playerCount : maximumNumberOfPeers;
+
+		for (int playerIndex = 0; playerIndex < maxIndex; playerIndex++)
+		{
+			remoteSystemIndex = GetIndexFromPlayerID(players[playerIndex], false);
+			if (remoteSystemIndex != (unsigned)-1 &&
+				remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP &&
+				remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY &&
+				remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
+			{
+				sendList[sendListSize++] = remoteSystemIndex;
+			}
+		}
+	}
+
+	RakNet::BitStream outgoingBitStream;
+	// remoteSystemList in network thread
+	for (sendListIndex=0; sendListIndex < (unsigned)sendListSize; sendListIndex++)
+	{
+		outgoingBitStream.ResetWritePointer(); // Let us write at the start of the data block, rather than at the end
+
+		if (shiftTimestamp)
+		{
+			outgoingBitStream.Write((unsigned char) ID_TIMESTAMP);
+			outgoingBitStream.Write(RakNet::GetTime());
+		}
+		outgoingBitStream.Write((unsigned char) ID_RPC);
+#if RPCID_STRING
+
+		rpcIndex=remoteSystemList[sendList[sendListIndex]].rpcMap.GetIndexFromFunctionName(uniqueID); // Lots of trouble but we can only use remoteSystem->[whatever] in this thread so that is why this command was buffered
+		if (rpcIndex!=UNDEFINED_RPC_INDEX)
+		{
+			// We have an RPC name to an index mapping, so write the index
+			outgoingBitStream.Write(false);
+			outgoingBitStream.WriteCompressed(rpcIndex);
+		}
+		else
+		{
+			// No mapping, so write the encoded RPC name
+			outgoingBitStream.Write(true);
+			stringCompressor->EncodeString(uniqueID, 256, &outgoingBitStream);
+		}
+#else
+		outgoingBitStream.Write(uniqueID);
+#endif
+#if !RAKNET_LEGACY
+		outgoingBitStream.Write((bool) ((replyFromTarget!=0)==true));
+#endif
+		outgoingBitStream.WriteCompressed( bitLength );
+#if !RAKNET_LEGACY
+		if (networkID==UNASSIGNED_NETWORK_ID)
+		{
+			// No object ID
+			outgoingBitStream.Write(false);
+		}
+		else
+		{
+			// Encode an object ID.  This will use pointer to class member RPC
+			outgoingBitStream.Write(true);
+			outgoingBitStream.Write(networkID);
+		}
+#endif
+
+		if ( bitLength > 0 )
+			outgoingBitStream.WriteBits( (const unsigned char *) data, bitLength, false ); // Last param is false to write the raw data originally from another bitstream, rather than shifting from user data
+		else
+			outgoingBitStream.WriteCompressed( ( unsigned int ) 0 );
+
+		Send(&outgoingBitStream, priority, reliability, orderingChannel, remoteSystemList[sendList[sendListIndex]].playerId, false);
+	}
+
+#if defined(_COMPATIBILITY_1)
+	delete [] sendList;
+#endif
+	return true;	
+}
 
 #ifdef _MSC_VER
 #pragma warning( disable : 4701 ) // warning C4701: local variable <variable name> may be used without having been initialized
@@ -1439,6 +1571,14 @@ bool RakPeer::RPC( RPCID  uniqueID, RakNet::BitStream const *bitStream, PacketPr
 		return RPC(uniqueID, (const char*) bitStream->GetData(), bitStream->GetNumberOfBitsUsed(), priority, reliability, orderingChannel, playerId, broadcast, shiftTimestamp, networkID, replyFromTarget);
 	else
 		return RPC(uniqueID, 0,0, priority, reliability, orderingChannel, playerId, broadcast, shiftTimestamp, networkID, replyFromTarget);
+}
+
+bool RakPeer::RPC(RPCID uniqueID, RakNet::BitStream const* bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream* replyFromTarget)
+{
+	if (bitStream)
+		return RPC(uniqueID, (const char*) bitStream->GetData(), bitStream->GetNumberOfBitsUsed(), priority, reliability, orderingChannel, players, playerCount, shiftTimestamp, networkID, replyFromTarget);
+	else
+		return RPC(uniqueID, 0,0, priority, reliability, orderingChannel, players, playerCount, shiftTimestamp, networkID, replyFromTarget);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
