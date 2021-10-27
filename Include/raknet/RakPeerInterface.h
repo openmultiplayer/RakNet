@@ -140,6 +140,28 @@ namespace RakNet
 		/// \return False if we are not connected to the specified recipient.  True otherwise
 		virtual bool Send( RakNet::BitStream const * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )=0;
 
+		/// Sends a block of data to the specified list of systems that you are connected to.
+		/// This function only works while the connected
+		/// \param[in] data The block of data to send
+		/// \param[in] length The size in bytes of the data to send
+		/// \param[in] priority What priority level to send on.  See PacketPriority.h
+		/// \param[in] reliability How reliability to send this data.  See PacketPriority.h
+		/// \param[in] orderingChannel When using ordered or sequenced messages, what channel to order these on. Messages are only ordered relative to other messages on the same stream
+		/// \param[in] players Who to send this packet to
+		/// \param[in] playerCount amount of players to receive this packet, based on size of passed array from previous parameter
+		/// \return False if we are not connected to the specified recipient.  True otherwise
+		virtual bool SendToList( const char *data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )=0;
+
+		/// Sends a block of data to the specified list of systems that you are connected to.  Same as the above version, but takes a BitStream as input.
+		/// \param[in] bitStream The bitstream to send
+		/// \param[in] priority What priority level to send on.  See PacketPriority.h
+		/// \param[in] reliability How reliability to send this data.  See PacketPriority.h
+		/// \param[in] orderingChannel When using ordered or sequenced messages, what channel to order these on. Messages are only ordered relative to other messages on the same stream
+		/// \param[in] players Who to send this packet to
+		/// \param[in] playerCount amount of players to receive this packet, based on size of passed array from previous parameter
+		/// \return False if we are not connected to the specified recipient.  True otherwise
+		virtual bool SendToList( RakNet::BitStream const * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )=0;
+
 		/// Gets a message from the incoming message queue.
 		/// Use DeallocatePacket() to deallocate the message after you are done with it.
 		/// User-thread functions, such as RPC calls and the plugin function PluginInterface::Update occur here.

@@ -896,6 +896,66 @@ bool RakPeer::Send( RakNet::BitStream const * bitStream, PacketPriority priority
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Description:
+// Sends a block of data to the specified list of systems that you are connected to.
+// This function only works while the clients are connected (Use the Connect function).
+//
+// Parameters:
+// data: The block of data to send
+// length: The size in bytes of the data to send
+// bitStream: The bitstream to send
+// priority: What priority level to send on.
+// reliability: How reliability to send this data
+// orderingChannel: When using ordered or sequenced packets, what channel to order these on.
+// - Packets are only ordered relative to other packets on the same stream
+// players: Who to send this packet to
+// playerCount: amount of players passed in previous parameter (array size)
+// Returns:
+// False if we are not connected to the specified recipient.  True otherwise
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+bool RakPeer::SendToList( const char *data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )
+{
+
+	RakAssert( data && length > 0 );
+
+
+	if ( data == 0 || length < 0 )
+		return false;
+
+	if ( remoteSystemList == 0 || endThreads == true )
+		return false;
+
+	if ( players == nullptr || playerCount < 1 )
+		return false;
+
+	SendBufferedToList(data, length*8, priority, reliability, orderingChannel, players, playerCount, RemoteSystemStruct::NO_ACTION);
+
+	return true;
+}
+
+bool RakPeer::SendToList( RakNet::BitStream const * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )
+{
+
+	RakAssert( bitStream->GetNumberOfBytesUsed() > 0 );
+
+
+	if ( bitStream->GetNumberOfBytesUsed() == 0 )
+		return false;
+
+	if ( remoteSystemList == 0 || endThreads == true )
+		return false;
+
+	if ( players == nullptr || playerCount < 1 )
+		return false;
+
+	// Sends need to be buffered and processed in the update thread because the playerID associated with the reliability layer can change,
+	// from that thread, resulting in a send to the wrong player!  While I could mutex the playerID, that is much slower than doing this
+	SendBufferedToList((const char*)bitStream->GetData(), bitStream->GetNumberOfBitsUsed(), priority, reliability, orderingChannel, players, playerCount, RemoteSystemStruct::NO_ACTION);
+	
+	return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// Description:
 // Gets a packet from the incoming packet queue. Use DeallocatePacket to deallocate the packet after you are done with it.  Packets must be deallocated in the same order they are received.
 // Check the Packet struct at the top of CoreNetworkStructures.h for the format of the struct
 //
@@ -1458,9 +1518,9 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 		return false;
 	}
 
-	unsigned *sendList;
 //	bool callerAllocationDataUsed;
-	unsigned sendListSize;
+	PlayerID* sendPlayerList;
+	unsigned sendPlayerListSize = 0;
 
 	// All this code modifies bcs->data and bcs->numberOfBitsToSend in order to transform an RPC request into an actual packet for SendImmediate
 #if RPCID_STRING
@@ -1468,11 +1528,9 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 #endif
 //	char *userData; // RPC ID (the name of it) and a pointer to the data sent by the user
 //	int extraBuffer; // How many data bytes were allocated to hold the RPC header
-	unsigned remoteSystemIndex, sendListIndex; // Iterates into the list of remote systems
+	unsigned remoteSystemIndex; // Iterates into the list of remote systems
 //	int dataBlockAllocationLength; // Total number of bytes to allocate for the packet
 //	char *writeTarget; // Used to hold either a block of allocated data or the externally allocated data
-
-	sendListSize=0;
 
 	if (playerCount==0)
 	{
@@ -1480,12 +1538,8 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 	}
 	else
 	{
-#if !defined(_COMPATIBILITY_1)
-		sendList=(unsigned *)alloca(sizeof(unsigned)*maximumNumberOfPeers);
-#else
-		sendList = new unsigned[maximumNumberOfPeers];
-#endif
 		int maxIndex = maximumNumberOfPeers > playerCount ? playerCount : maximumNumberOfPeers;
+		sendPlayerList = new PlayerID[maxIndex];
 
 		for (int playerIndex = 0; playerIndex < maxIndex; playerIndex++)
 		{
@@ -1495,70 +1549,52 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 				remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY &&
 				remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
 			{
-				sendList[sendListSize++] = remoteSystemIndex;
+				sendPlayerList[sendPlayerListSize++] = players[playerIndex];
 			}
 		}
 	}
 
 	RakNet::BitStream outgoingBitStream;
 	// remoteSystemList in network thread
-	for (sendListIndex=0; sendListIndex < (unsigned)sendListSize; sendListIndex++)
+
+	// write the same RPC data into bitstream once, and use it for all players
+	outgoingBitStream.ResetWritePointer(); // Let us write at the start of the data block, rather than at the end
+
+	if (shiftTimestamp)
 	{
-		outgoingBitStream.ResetWritePointer(); // Let us write at the start of the data block, rather than at the end
-
-		if (shiftTimestamp)
-		{
-			outgoingBitStream.Write((unsigned char) ID_TIMESTAMP);
-			outgoingBitStream.Write(RakNet::GetTime());
-		}
-		outgoingBitStream.Write((unsigned char) ID_RPC);
-#if RPCID_STRING
-
-		rpcIndex=remoteSystemList[sendList[sendListIndex]].rpcMap.GetIndexFromFunctionName(uniqueID); // Lots of trouble but we can only use remoteSystem->[whatever] in this thread so that is why this command was buffered
-		if (rpcIndex!=UNDEFINED_RPC_INDEX)
-		{
-			// We have an RPC name to an index mapping, so write the index
-			outgoingBitStream.Write(false);
-			outgoingBitStream.WriteCompressed(rpcIndex);
-		}
-		else
-		{
-			// No mapping, so write the encoded RPC name
-			outgoingBitStream.Write(true);
-			stringCompressor->EncodeString(uniqueID, 256, &outgoingBitStream);
-		}
-#else
-		outgoingBitStream.Write(uniqueID);
-#endif
-#if !RAKNET_LEGACY
-		outgoingBitStream.Write((bool) ((replyFromTarget!=0)==true));
-#endif
-		outgoingBitStream.WriteCompressed( bitLength );
-#if !RAKNET_LEGACY
-		if (networkID==UNASSIGNED_NETWORK_ID)
-		{
-			// No object ID
-			outgoingBitStream.Write(false);
-		}
-		else
-		{
-			// Encode an object ID.  This will use pointer to class member RPC
-			outgoingBitStream.Write(true);
-			outgoingBitStream.Write(networkID);
-		}
-#endif
-
-		if ( bitLength > 0 )
-			outgoingBitStream.WriteBits( (const unsigned char *) data, bitLength, false ); // Last param is false to write the raw data originally from another bitstream, rather than shifting from user data
-		else
-			outgoingBitStream.WriteCompressed( ( unsigned int ) 0 );
-
-		Send(&outgoingBitStream, priority, reliability, orderingChannel, remoteSystemList[sendList[sendListIndex]].playerId, false);
+		outgoingBitStream.Write((unsigned char) ID_TIMESTAMP);
+		outgoingBitStream.Write(RakNet::GetTime());
 	}
+	outgoingBitStream.Write((unsigned char) ID_RPC);
 
-#if defined(_COMPATIBILITY_1)
-	delete [] sendList;
+	outgoingBitStream.Write(uniqueID);
+
+#if !RAKNET_LEGACY
+	outgoingBitStream.Write((bool) ((replyFromTarget!=0)==true));
 #endif
+	outgoingBitStream.WriteCompressed( bitLength );
+#if !RAKNET_LEGACY
+	if (networkID==UNASSIGNED_NETWORK_ID)
+	{
+		// No object ID
+		outgoingBitStream.Write(false);
+	}
+	else
+	{
+		// Encode an object ID.  This will use pointer to class member RPC
+		outgoingBitStream.Write(true);
+		outgoingBitStream.Write(networkID);
+	}
+#endif
+
+	if ( bitLength > 0 )
+		outgoingBitStream.WriteBits( (const unsigned char *) data, bitLength, false ); // Last param is false to write the raw data originally from another bitstream, rather than shifting from user data
+	else
+		outgoingBitStream.WriteCompressed( ( unsigned int ) 0 );
+
+	SendToList(&outgoingBitStream, priority, reliability, orderingChannel, sendPlayerList, sendPlayerListSize);
+
+	delete[] sendPlayerList;
 	return true;	
 }
 
@@ -3714,12 +3750,12 @@ void RakPeer::SendBuffered( const char *data, int numberOfBitsToSend, PacketPrio
 #ifdef _RAKNET_THREADSAFE
 	rakPeerMutexes[bufferedCommands_Mutex].Lock();
 #endif
+
+	char* dataToBeWritten = new char[BITS_TO_BYTES(numberOfBitsToSend)];
+	RakAssert(dataToBeWritten);
+	memcpy(dataToBeWritten, data, BITS_TO_BYTES(numberOfBitsToSend));
 	bcs=bufferedCommands.WriteLock();
-	bcs->data = new char[BITS_TO_BYTES(numberOfBitsToSend)]; // Making a copy doesn't lose efficiency because I tell the reliability layer to use this allocation for its own copy
-
-	RakAssert(bcs->data);
-
-	memcpy(bcs->data, data, BITS_TO_BYTES(numberOfBitsToSend));
+	bcs->data = dataToBeWritten;
     bcs->numberOfBitsToSend=numberOfBitsToSend;
 	bcs->priority=priority;
 	bcs->reliability=reliability;
@@ -3730,6 +3766,39 @@ void RakPeer::SendBuffered( const char *data, int numberOfBitsToSend, PacketPrio
 	bcs->command=BufferedCommandStruct::BCS_SEND;
 	bufferedCommands.WriteUnlock();
 
+#ifdef _RAKNET_THREADSAFE
+	rakPeerMutexes[bufferedCommands_Mutex].Unlock();
+#endif
+}
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void RakPeer::SendBufferedToList( const char *data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, RemoteSystemStruct::ConnectMode connectionMode )
+{
+	RakAssert(orderingChannel >=0 && orderingChannel < 32);
+
+	BufferedCommandStruct *bcs;
+
+#ifdef _RAKNET_THREADSAFE
+	rakPeerMutexes[bufferedCommands_Mutex].Lock();
+#endif
+
+	for (int index = 0; index < playerCount; index++)
+	{
+		char* dataToBeWritten = new char[BITS_TO_BYTES(numberOfBitsToSend)];
+		RakAssert(dataToBeWritten);
+		memcpy(dataToBeWritten, data, BITS_TO_BYTES(numberOfBitsToSend));
+		bcs = bufferedCommands.WriteLock();
+		bcs->data = dataToBeWritten; // Making a copy doesn't lose efficiency because I tell the reliability layer to use this allocation for its own copy
+		bcs->numberOfBitsToSend = numberOfBitsToSend;
+		bcs->priority = priority;
+		bcs->reliability = reliability;
+		bcs->orderingChannel = orderingChannel;
+		bcs->playerId = players[index];
+		bcs->broadcast = false;
+		bcs->connectionMode = connectionMode;
+		bcs->command = BufferedCommandStruct::BCS_SEND;
+		bufferedCommands.WriteUnlock();
+	}
+	
 #ifdef _RAKNET_THREADSAFE
 	rakPeerMutexes[bufferedCommands_Mutex].Unlock();
 #endif

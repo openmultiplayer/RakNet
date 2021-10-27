@@ -109,6 +109,16 @@ bool RakServer::Send( RakNet::BitStream const *bitStream, PacketPriority priorit
 	return RakPeer::Send( bitStream, priority, reliability, orderingChannel, playerId, broadcast );
 }
 
+bool RakServer::SendToList( const char *data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )
+{
+	return RakPeer::SendToList( data, length, priority, reliability, orderingChannel, players, playerCount );
+}
+
+bool RakServer::SendToList( RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )
+{
+	return RakPeer::SendToList( bitStream, priority, reliability, orderingChannel, players, playerCount );
+}
+
 Packet* RakServer::Receive( void )
 {
 	Packet * packet = RakPeer::Receive();
