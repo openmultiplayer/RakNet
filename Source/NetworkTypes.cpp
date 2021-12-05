@@ -84,6 +84,13 @@ char* my_itoa( int value, char* result, int base ) {
 // All systems must use the same value for this variable.
 bool RAK_DLL_EXPORT NetworkID::peerToPeerMode=false;
 
+PlayerID& PlayerID::operator = ( const PlayerID& input )
+{
+	binaryAddress = input.binaryAddress;
+	port = input.port;
+	return *this;
+}
+
 bool PlayerID::operator==( const PlayerID& right ) const
 {
 	return binaryAddress == right.binaryAddress && port == right.port;

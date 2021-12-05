@@ -77,12 +77,7 @@ namespace RakNet
 		// Sets the binary address part from a string.  Doesn't set the port
 		void SetBinaryAddress(const char *str);
 
-		PlayerID& operator = ( const PlayerID& input )
-		{
-			binaryAddress = input.binaryAddress;
-			port = input.port;
-			return *this;
-		}
+		PlayerID &operator=(const PlayerID &input) = default;
 
 		bool operator==( const PlayerID& right ) const;
 		bool operator!=( const PlayerID& right ) const;
@@ -103,7 +98,7 @@ namespace RakNet
 		PlayerID playerId;
 		unsigned short localSystemId;
 
-		NetworkID& operator = ( const NetworkID& input );
+		NetworkID& operator = ( const NetworkID& input ) = default;
 
 		static bool IsPeerToPeerMode(void);
 		static void SetPeerToPeerMode(bool isPeerToPeer);
