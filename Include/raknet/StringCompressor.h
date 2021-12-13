@@ -100,6 +100,6 @@ namespace RakNet
 
 /// Define to more easily reference the string compressor instance.
 /// The RakPeer constructor adds a reference to this class, so don't call this until an instance of RakPeer exists, or unless you call AddReference yourself.
-#define stringCompressor StringCompressor::Instance()
+#define stringCompressor RakNet::StringCompressor::Instance()
 
 #endif
