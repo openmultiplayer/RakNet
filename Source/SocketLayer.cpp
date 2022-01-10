@@ -370,9 +370,9 @@ int SocketLayer::RecvFrom( const SOCKET s, RakPeer *rakPeer, int *errorCode )
 
 	if ( len != SOCKET_ERROR )
 	{
-		if (data[0] == 'S' && data[1] == 'A' && data[2] == 'M' && data[3] == 'P')
+		if (len > 10 && data[0] == 'S' && data[1] == 'A' && data[2] == 'M' && data[3] == 'P')
 		{
-			SAMPRakNet::HandleQuery(s, len2, sa, data);
+			SAMPRakNet::HandleQuery(s, len2, sa, data, len);
 			return 1;
 		}
 
