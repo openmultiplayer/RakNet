@@ -87,17 +87,3 @@ private:
 	static bool logCookies_;
 	static ICore* core_;
 };
-
-class SAMPRakNetChecksumException : public std::exception
-{
-public:
-	explicit
-		SAMPRakNetChecksumException(uint8_t expected, uint8_t got);
-
-	char const *
-		what() const noexcept override;
-
-	const uint8_t
-		Expected,
-		Got;
-};

@@ -378,7 +378,14 @@ int SocketLayer::RecvFrom( const SOCKET s, RakPeer *rakPeer, int *errorCode )
 
 		unsigned short portnum;
 		portnum = ntohs( sa.sin_port );
-		ProcessNetworkPacket( sa.sin_addr.s_addr, portnum, (char *)SAMPRakNet::Decrypt((uint8_t *)data, len), len - 1, rakPeer );
+		uint8_t* decrypted = SAMPRakNet::Decrypt((uint8_t*)data, len);
+		if (decrypted) {
+			ProcessNetworkPacket(sa.sin_addr.s_addr, portnum, (char*)decrypted, len - 1, rakPeer);
+		}
+		else {
+			uint8_t* const addr = reinterpret_cast<uint8_t*>(&sa.sin_addr.s_addr);
+			SAMPRakNet::GetCore()->printLn("Dropping bad packet from %u.%u.%u.%u:%u!", addr[0], addr[1], addr[2], addr[3], sa.sin_port);
+		}
 
 		return 1;
 	}
