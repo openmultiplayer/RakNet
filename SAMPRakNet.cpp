@@ -63,8 +63,9 @@ uint8_t *
 		checksum ^= cur & 0xAA;
 		buffer_[i - 1] = cur;
 	}
-	if (src[0] != checksum)
-		throw SAMPRakNetChecksumException(src[0], checksum);
+	if (src[0] != checksum) {
+		return nullptr;
+	}
 	return buffer_;
 }
 
@@ -107,23 +108,6 @@ uint8_t *
 	}
 	buffer_[0] = checksum;
 	return buffer_;
-}
-
-// cons
-	SAMPRakNetChecksumException::
-	SAMPRakNetChecksumException(uint8_t expected, uint8_t got)
-:
-	std::exception(),
-	Expected(expected),
-	Got(got)
-{
-}
-
-char const *
-	SAMPRakNetChecksumException::
-	what() const noexcept
-{
-	return "RakNet decryption checksum mismatch";
 }
 
 void 
