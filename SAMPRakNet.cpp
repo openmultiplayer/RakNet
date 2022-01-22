@@ -9,6 +9,11 @@ uint32_t SAMPRakNet::token_;
 uint16_t SAMPRakNet::portNumber = 7777;
 Query* SAMPRakNet::query_ = nullptr;
 unsigned int SAMPRakNet::timeout_ = 10000;
+unsigned int SAMPRakNet::minConnectionTime_ = 0;
+unsigned int SAMPRakNet::messagesLimit_ = 500;
+unsigned int SAMPRakNet::messageHoleLimit_ = 3000;
+unsigned int SAMPRakNet::acksLimit_ = 3000;
+unsigned int SAMPRakNet::networkLimitsBanTime_ = 60000;
 bool SAMPRakNet::logCookies_ = false;
 ICore* SAMPRakNet::core_ = nullptr;
 

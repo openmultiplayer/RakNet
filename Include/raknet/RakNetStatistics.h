@@ -116,6 +116,16 @@ namespace RakNet
 		///  Last time raknet stored per second received messages
 		RakNetTimeNS lastRecvMsgProcess;
 
+		/// Used for messages_limit config option in open.mp
+		RakNetTimeNS perFrameMessagesLimitCheckLastTick;
+		unsigned int perFrameMessagesLimitCounter;
+		unsigned int perSecondMessagesLimitCounter;
+
+		/// Used for acks_limit config option in open.mp
+		RakNetTimeNS perFrameAcksLimitCheckLastTick;
+        unsigned int perFrameAcksLimitCounter;
+        unsigned int perSecondAcksLimitCounter;
+
 		RakNetStatisticsStruct operator +=(const RakNetStatisticsStruct& other)
 		{
 			unsigned i;
