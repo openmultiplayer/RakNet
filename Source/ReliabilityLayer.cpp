@@ -335,7 +335,7 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 // because some data is used internally, such as packet acknowledgement and
 //split packets
 //-------------------------------------------------------------------------------------------------------
-bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffer, int length, PlayerID playerId, DataStructures::List<PluginInterface*> &messageHandlerList, int MTUSize )
+bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffer, int length, PlayerID playerId, DataStructures::List<PluginInterface*> &messageHandlerList, int MTUSize, bool &shouldBanPeer )
 {
 
 	RakAssert( !( length <= 0 || buffer == 0 ) );
@@ -344,7 +344,11 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 	if ( length <= 1 || buffer == 0 )   // Length of 1 is a connection request resend that we just ignore
 		return true;
 
+	shouldBanPeer = false;
 	//int numberOfAcksInFrame = 0;
+	unsigned int acksLimit = 0;
+	unsigned int messageHoleLimit = 0;
+	unsigned int messagesLimit = 0;
 	RakNetTimeNS time;
 	bool indexFound;
 	int count, size;
@@ -375,6 +379,9 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 
 	RakNet::BitStream socketData( (unsigned char*) buffer, length, false ); // Convert the incoming data to a bitstream for easy parsing
 	time = RakNet::GetTimeNS();
+	acksLimit = SAMPRakNet::GetAcksLimit();
+	messageHoleLimit = SAMPRakNet::GetMessageHoleLimit();
+	messagesLimit = SAMPRakNet::GetMessagesLimit();
 
 	DataStructures::RangeList<MessageNumberType> incomingAcks;
 	socketData.Read(hasAcks);
@@ -385,15 +392,29 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 			return false;
 		for (i=0; i<incomingAcks.ranges.Size();i++)
 		{
-			if (incomingAcks.ranges[i].minIndex>incomingAcks.ranges[i].maxIndex || (incomingAcks.ranges[i].maxIndex == (RakNet::MessageNumberType)(0xFFFFFFFF)))
+			if (incomingAcks.ranges[i].minIndex>incomingAcks.ranges[i].maxIndex)
 			{
 				RakAssert(incomingAcks.ranges[i].minIndex<=incomingAcks.ranges[i].maxIndex);
 				return false;
 			}
 
+			statistics.acknowlegementsReceived += incomingAcks.ranges[i].maxIndex - incomingAcks.ranges[i].minIndex;
+
+			if (incomingAcks.ranges[i].maxIndex - incomingAcks.ranges[i].minIndex > messageHoleLimit) 
+			{
+				unsigned int receivedAcks = incomingAcks.ranges[i].maxIndex - incomingAcks.ranges[i].minIndex;
+				const char* ipPort = playerId.ToString(true);
+				SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "client exceeded 'messageholelimit' (1) %s (%d) Limit: %d", ipPort, receivedAcks, messageHoleLimit);
+				incomingAcks.Clear();
+				shouldBanPeer = true;
+				return 1;
+			}
+
 			for (messageNumber=incomingAcks.ranges[i].minIndex; messageNumber >= incomingAcks.ranges[i].minIndex && messageNumber <= incomingAcks.ranges[i].maxIndex; messageNumber++)
 			{
 				hasAcks=true;
+
+				statistics.perFrameAcksLimitCounter ++; 
 
 				// SHOW - ack received
 				//printf("Got Ack for %i. resendList.Size()=%i sendQueue[0].Size() = %i\n",internalPacket->messageNumber, resendList.Size(), sendQueue[0].Size());
@@ -422,6 +443,23 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 					lastAckTime = time; // Just got an ack.  Record when we got it so we know the connection is alive
 				}
 			}
+
+			if (time - statistics.perFrameAcksLimitCheckLastTick > 1000000)
+			{
+				statistics.perSecondAcksLimitCounter = statistics.perFrameAcksLimitCounter;
+				statistics.perFrameAcksLimitCheckLastTick = time;
+				statistics.perFrameAcksLimitCounter = 0;
+			}
+			
+			if (statistics.perSecondAcksLimitCounter > acksLimit)
+			{
+				const char * ipPort = playerId.ToString(true);
+				SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "client exceeded 'ackslimit' %s (%d) Limit: %d/sec", ipPort, statistics.perSecondAcksLimitCounter, acksLimit);
+				incomingAcks.Clear();
+				shouldBanPeer = true;
+				return 1;
+			}
+
 		}
 	}
 
@@ -460,6 +498,19 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 				receivedPacketsBaseIndex=0;
 				resetReceivedPackets=false;
 			}
+
+			// @iAmir:
+			// after a long time of being flooded by a client, when another one joins it will be a false positive for innocent one
+			// should be disabled for now, will investigate later if possible so we can bring it back
+			//unsigned __int16 msgNumberOffset = internalPacket->messageNumber - receivedPacketsBaseIndex;
+			//if(msgNumberOffset > messageHoleLimit)
+			//{
+			//	const char * ipPort = playerId.ToString(true);
+			//	SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "client exceeded 'messageholelimit' (2) %s (%d) Limit: %d", ipPort, msgNumberOffset, messageHoleLimit);
+			//	incomingAcks.Clear();
+			//	shouldBanPeer = true;
+			//	return 1;
+			//}
 
 			// If the following conditional is true then this either a duplicate packet
 			// or an older out of order packet
@@ -522,6 +573,24 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 			{
 				hasReceivedPacketQueue.Pop();
 				++receivedPacketsBaseIndex;
+			}
+
+			this->statistics.perFrameMessagesLimitCounter++;
+			if (time - statistics.perFrameMessagesLimitCheckLastTick > 1000000 )
+			{
+				statistics.perFrameMessagesLimitCheckLastTick = time;
+				statistics.perSecondMessagesLimitCounter = statistics.perFrameMessagesLimitCounter;
+				statistics.perFrameMessagesLimitCounter = 0;
+			}
+			if (statistics.perSecondMessagesLimitCounter > messagesLimit)
+			{
+				const char* ipPort = playerId.ToString(true);
+				SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "client exceeded 'messageslimit' %s (%d) Limit: %d/sec", ipPort, statistics.perSecondMessagesLimitCounter, messagesLimit);
+				delete [] internalPacket->data;
+				internalPacketPool.ReleasePointer( internalPacket );
+				incomingAcks.Clear();
+				shouldBanPeer = true;
+				return 1;
 			}
 
 			statistics.messagesReceived++;
@@ -712,6 +781,17 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 				{
 				//	RakAssert(waitingForOrderedPacketReadIndex[ internalPacket->orderingChannel ] < internalPacket->orderingIndex);
 					statistics.orderedMessagesOutOfOrder++;
+
+					if ( statistics.orderedMessagesOutOfOrder > messageHoleLimit )
+					{
+						const char* ipPort = playerId.ToString(true);
+						SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "Too many out-of-order messages from player %s (%d) Limit: %u (messageholelimit)", ipPort, statistics.orderedMessagesOutOfOrder, messageHoleLimit);
+						delete [] internalPacket->data;
+						internalPacketPool.ReleasePointer( internalPacket );
+						incomingAcks.Clear();
+						shouldBanPeer = true;
+						return 1;
+					}
 
 					// This is a newer ordered packet than we are waiting for. Store it for future use
 					AddToOrderingList( internalPacket );

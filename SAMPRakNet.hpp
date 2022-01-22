@@ -76,6 +76,21 @@ public:
 	static void SetLogCookies(bool log) { logCookies_ = log; }
 	static bool ShouldLogCookies() { return logCookies_; }
 
+	static void SetMinConnectionTime(unsigned int time) { minConnectionTime_ = time; }
+	static unsigned int GetMinConnectionTime() { return minConnectionTime_; }
+
+	static void SetMessagesLimit(unsigned int limit) { messagesLimit_ = limit; }
+    static unsigned int GetMessagesLimit() { return messagesLimit_; }
+
+	static void SetMessageHoleLimit(unsigned int limit) { messageHoleLimit_ = limit; }
+    static unsigned int GetMessageHoleLimit() { return messageHoleLimit_; }
+
+	static void SetAcksLimit(unsigned int limit) { acksLimit_ = limit; }
+    static unsigned int GetAcksLimit() { return acksLimit_; }
+
+	static void SetNetworkLimitsBanTime(unsigned int time) { networkLimitsBanTime_ = time; }
+    static unsigned int GetNetworkLimitsBanTime() { return networkLimitsBanTime_; }
+
 	static ICore* GetCore() { return core_; }
 
 private:
@@ -85,5 +100,10 @@ private:
 	static Query *query_;
 	static unsigned int timeout_;
 	static bool logCookies_;
+    static unsigned int minConnectionTime_;
+    static unsigned int messagesLimit_;
+    static unsigned int messageHoleLimit_;
+    static unsigned int acksLimit_;
+    static unsigned int networkLimitsBanTime_;
 	static ICore* core_;
 };
