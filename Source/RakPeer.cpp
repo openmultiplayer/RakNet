@@ -3879,6 +3879,9 @@ namespace RakNet
 	void ProcessNetworkPacket( const unsigned int binaryAddress, const unsigned short port, const char *data, const int length, RakPeer *rakPeer )
 	#endif
 	{
+		static RakNetTime minConnectionTick;
+		static RakNetTime minConnectionLogTick;
+
 		Packet *packet;
 		PlayerID playerId;
 		unsigned i;
@@ -4065,6 +4068,25 @@ namespace RakNet
 				SocketLayer::Instance()->SendTo(rakPeer->connectionSocket, (const char*)&c, 3, playerId.binaryAddress, playerId.port);
 				return;
 			}
+
+			RakNetTime configuredMinConnTime = SAMPRakNet::GetMinConnectionTime();
+			RakNetTime tickTime = RakNet::GetTime();
+			if ( minConnectionTick && configuredMinConnTime > 0 && tickTime - minConnectionTick < configuredMinConnTime )
+			{
+				if ( !minConnectionLogTick || tickTime - minConnectionLogTick > configuredMinConnTime )
+				{
+					SAMPRakNet::GetCore()->printLn(
+						"Warning: Minimum time between new connections (%u) exceeded for %i:%i. Ignoring the request.",
+						configuredMinConnTime,
+						binaryAddress, 
+						port
+					);
+					minConnectionLogTick = tickTime;
+				}
+				return;
+			}
+			minConnectionTick = tickTime;
+
 			for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
 				rakPeer->messageHandlerList[i]->OnDirectSocketReceive(data, length*8, playerId);
 
@@ -4114,6 +4136,7 @@ namespace RakNet
 		remoteSystem = rakPeer->GetRemoteSystemFromPlayerID( playerId, true, true );
 		if ( remoteSystem )
 		{
+			bool shouldBanPeer = false;
 			if (remoteSystem->connectMode==RakPeer::RemoteSystemStruct::SET_ENCRYPTION_ON_MULTIPLE_16_BYTE_PACKET &&
 	#if RAKNET_LEGACY
 					(length%8)==0
@@ -4125,7 +4148,7 @@ namespace RakNet
 
 			// Handle regular incoming data
 			// HandleSocketReceiveFromConnectedPlayer is only safe to be called from the same thread as Update, which is this thread
-			if ( remoteSystem->reliabilityLayer.HandleSocketReceiveFromConnectedPlayer( data, length, playerId, rakPeer->messageHandlerList, rakPeer->MTUSize ) == false )
+			if ( remoteSystem->reliabilityLayer.HandleSocketReceiveFromConnectedPlayer( data, length, playerId, rakPeer->messageHandlerList, rakPeer->MTUSize, shouldBanPeer ) == false )
 			{
 				// These kinds of packets may have been duplicated and incorrectly determined to be
 				// cheat packets.  Anything else really is a cheat packet
@@ -4145,6 +4168,13 @@ namespace RakNet
 					packet->playerIndex = ( PlayerIndex ) rakPeer->GetIndexFromPlayerID( playerId, true );
 					rakPeer->AddPacketToProducer(packet);
 				}
+			}
+
+			if (shouldBanPeer)
+			{
+				const char* playerIp = rakPeer->PlayerIDToDottedIP(playerId);
+				RakNetTime banTime = SAMPRakNet::GetNetworkLimitsBanTime();
+				rakPeer->AddToBanList(playerIp, banTime);
 			}
 		}
 		else
