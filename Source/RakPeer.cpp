@@ -61,6 +61,8 @@
 #include <stdlib.h>
 #endif
 
+#define LOCALHOST 0x0100007fu
+
 using namespace RakNet;
 
 #ifdef _MSC_VER
@@ -4170,7 +4172,7 @@ namespace RakNet
 				}
 			}
 
-			if (shouldBanPeer)
+			if (shouldBanPeer && playerId.binaryAddress != LOCALHOST)
 			{
 				const char* playerIp = rakPeer->PlayerIDToDottedIP(playerId);
 				RakNetTime banTime = SAMPRakNet::GetNetworkLimitsBanTime();
