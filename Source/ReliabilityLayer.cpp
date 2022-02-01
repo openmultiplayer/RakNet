@@ -41,8 +41,6 @@
 	#endif
 #endif
 
-#define LOCALHOST 0x0100007fu
-
 using namespace RakNet;
 
 static const int DEFAULT_HAS_RECEIVED_PACKET_QUEUE_SIZE=512;
@@ -402,7 +400,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 
 			statistics.acknowlegementsReceived += incomingAcks.ranges[i].maxIndex - incomingAcks.ranges[i].minIndex;
 
-			if (incomingAcks.ranges[i].maxIndex - incomingAcks.ranges[i].minIndex > messageHoleLimit && playerId.binaryAddress != LOCALHOST)
+			if (incomingAcks.ranges[i].maxIndex - incomingAcks.ranges[i].minIndex > messageHoleLimit)
 			{
 				unsigned int receivedAcks = incomingAcks.ranges[i].maxIndex - incomingAcks.ranges[i].minIndex;
 				const char* ipPort = playerId.ToString(true);
@@ -453,7 +451,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 				statistics.perFrameAcksLimitCounter = 0;
 			}
 			
-			if (statistics.perSecondAcksLimitCounter > acksLimit && playerId.binaryAddress != LOCALHOST)
+			if (statistics.perSecondAcksLimitCounter > acksLimit)
 			{
 				const char * ipPort = playerId.ToString(true);
 				SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "client exceeded 'ackslimit' %s (%d) Limit: %d/sec", ipPort, statistics.perSecondAcksLimitCounter, acksLimit);
@@ -584,7 +582,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 				statistics.perSecondMessagesLimitCounter = statistics.perFrameMessagesLimitCounter;
 				statistics.perFrameMessagesLimitCounter = 0;
 			}
-			if (statistics.perSecondMessagesLimitCounter > messagesLimit && playerId.binaryAddress != LOCALHOST)
+			if (statistics.perSecondMessagesLimitCounter > messagesLimit)
 			{
 				const char* ipPort = playerId.ToString(true);
 				SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "client exceeded 'messageslimit' %s (%d) Limit: %d/sec", ipPort, statistics.perSecondMessagesLimitCounter, messagesLimit);
@@ -784,7 +782,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 				//	RakAssert(waitingForOrderedPacketReadIndex[ internalPacket->orderingChannel ] < internalPacket->orderingIndex);
 					statistics.orderedMessagesOutOfOrder++;
 
-					if (statistics.orderedMessagesOutOfOrder > messageHoleLimit && playerId.binaryAddress != LOCALHOST)
+					if (statistics.orderedMessagesOutOfOrder > messageHoleLimit)
 					{
 						const char* ipPort = playerId.ToString(true);
 						SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "Too many out-of-order messages from player %s (%d) Limit: %u (messageholelimit)", ipPort, statistics.orderedMessagesOutOfOrder, messageHoleLimit);
