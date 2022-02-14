@@ -153,6 +153,7 @@ namespace RakNet
 
 		/// Which system called this RPC
 		PlayerID sender;
+		PlayerIndex senderIndex;
 
 		/// Which instance of RakPeer (or a derived RakServer or RakClient) got this call
 		RakPeerInterface *recipient;
