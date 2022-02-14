@@ -913,7 +913,7 @@ Packet* RakPeer::Receive( void )
 	{
 		// Do RPC calls from the user thread, not the network update thread
 		// If we are currently blocking on an RPC reply, send ID_RPC to the blocker to handle rather than handling RPCs automatically
-		HandleRPCPacket( ( char* ) packet->data, packet->length, packet->playerId );
+		HandleRPCPacket( ( char* ) packet->data, packet->length, packet->playerId, packet->playerIndex );
 		DeallocatePacket( packet );
 
 		packet = ReceiveIgnoreRPC();
@@ -2948,7 +2948,7 @@ RakNetTime RakPeer::GetBestClockDifferential( const PlayerID playerId ) const
 #ifdef _MSC_VER
 #pragma warning( disable : 4701 ) // warning C4701: local variable <variable name> may be used without having been initialized
 #endif
-bool RakPeer::HandleRPCPacket( const char *data, int length, PlayerID playerId )
+bool RakPeer::HandleRPCPacket( const char *data, int length, PlayerID playerId, PlayerIndex playerIndex )
 {
 	// RPC BitStream format is
 	// ID_RPC - unsigned char
@@ -2977,6 +2977,7 @@ bool RakPeer::HandleRPCPacket( const char *data, int length, PlayerID playerId )
 
 	rpcParms.recipient=this;
 	rpcParms.sender=playerId;
+	rpcParms.senderIndex=playerIndex;
 
 	// Note to self - if I change this format then I have to change the PacketLogger class too
 	incomingBitStream.IgnoreBits(8);
