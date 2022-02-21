@@ -4062,7 +4062,7 @@ namespace RakNet
 			if ((*(uint16_t*)(data + 1) ^ 0x6969/* Petarded [S04E06] */) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress))) {
 #ifdef _DO_PRINTF
 				if (SAMPRakNet::ShouldLogCookies()) {
-					SAMPRakNet::GetCore()->printLn("%i:%i requests connection cookie", binaryAddress, port);
+					SAMPRakNet::GetCore()->printLn("%s requests connection cookie", playerId.ToString());
 				}
 #endif
 				char c[3];
@@ -4079,10 +4079,9 @@ namespace RakNet
 				if ( !minConnectionLogTick || tickTime - minConnectionLogTick > configuredMinConnTime )
 				{
 					SAMPRakNet::GetCore()->printLn(
-						"Warning: Minimum time between new connections (%u) exceeded for %i:%i. Ignoring the request.",
-						configuredMinConnTime,
-						binaryAddress, 
-						port
+                        "Warning: Minimum time between new connections (%u) exceeded for %s. Ignoring the request.",
+                        configuredMinConnTime,
+						playerId.ToString()
 					);
 					minConnectionLogTick = tickTime;
 				}
@@ -4513,7 +4512,7 @@ namespace RakNet
 					// else connection shutting down, don't bother telling the user
 
 	#ifdef _DO_PRINTF
-					SAMPRakNet::GetCore()->printLn("Connection dropped for player %i:%i", playerId.binaryAddress, playerId.port);
+					SAMPRakNet::GetCore()->printLn("Connection dropped for player %s", playerId.ToString());
 	#endif
 					CloseConnectionInternal( playerId, false, true, 0 );
 					continue;
@@ -4614,7 +4613,7 @@ namespace RakNet
 							{
 								CloseConnectionInternal(playerId, false, true, 0);
 #ifdef _DO_PRINTF
-								SAMPRakNet::GetCore()->printLn("Temporarily banning %i:%i for sending nonsense data", playerId.binaryAddress, playerId.port);
+								SAMPRakNet::GetCore()->printLn("Temporarily banning %s for sending nonsense data", playerId.ToString());
 #endif
 
 #if !defined(_COMPATIBILITY_1)
