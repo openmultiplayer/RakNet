@@ -174,7 +174,11 @@ SOCKET SocketLayer::CreateBoundSocket( unsigned short port, bool blockingSocket,
 
 	int sock_opt = 1;
 
-	if ( setsockopt( listenSocket, SOL_SOCKET, SO_REUSEADDR, ( char * ) & sock_opt, sizeof ( sock_opt ) ) == -1 )
+#if defined(_WIN32)
+    if (setsockopt(listenSocket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (char*)&sock_opt, sizeof(sock_opt)) == -1)
+#else
+	if (setsockopt( listenSocket, SOL_SOCKET, SO_REUSEADDR, ( char * ) & sock_opt, sizeof ( sock_opt ) ) == -1)
+#endif
 	{
 #if defined(_WIN32) && !defined(_COMPATIBILITY_1) && defined(_DEBUG)
 		DWORD dwIOError = GetLastError();
@@ -183,7 +187,7 @@ SOCKET SocketLayer::CreateBoundSocket( unsigned short port, bool blockingSocket,
 			NULL, dwIOError, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),  // Default language
 			( LPTSTR ) & messageBuffer, 0, NULL );
 		// something has gone wrong here...
-		printf( "setsockopt(SO_REUSEADDR) failed:Error code - %lu\n%s", dwIOError, (char *)messageBuffer );
+		printf( "setsockopt(SO_EXCLUSIVEADDRUSE) failed:Error code - %lu\n%s", dwIOError, (char *)messageBuffer );
 		//Free the buffer.
 		LocalFree( messageBuffer );
 #endif
@@ -382,11 +386,12 @@ int SocketLayer::RecvFrom( const SOCKET s, RakPeer *rakPeer, int *errorCode )
 		if (decrypted) {
 			ProcessNetworkPacket(sa.sin_addr.s_addr, portnum, (char*)decrypted, len - 1, rakPeer);
 		}
+#ifdef _DEBUG
 		else {
 			uint8_t* const addr = reinterpret_cast<uint8_t*>(&sa.sin_addr.s_addr);
 			SAMPRakNet::GetCore()->printLn("Dropping bad packet from %u.%u.%u.%u:%u!", addr[0], addr[1], addr[2], addr[3], sa.sin_port);
 		}
-
+#endif
 		return 1;
 	}
 	else
