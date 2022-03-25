@@ -137,7 +137,7 @@ Packet* RakServer::Receive( void )
 			{
 				remoteSystem = remoteSystemList + i;
 
-				if ( remoteSystem->playerId != UNASSIGNED_PLAYER_ID && remoteSystem->isActive)
+				if ( remoteSystem->isActive && remoteSystem->playerId != UNASSIGNED_PLAYER_ID)
 				{
 					bitStream.Write( remoteSystem->playerId.binaryAddress );
 					bitStream.Write( remoteSystem->playerId.port );
