@@ -3174,7 +3174,7 @@ bool RakPeer::HandleRPCPacket( const char *data, int length, PlayerID playerId, 
 		if ( incomingBitStream.ReadBits( ( unsigned char* ) userData, rpcParms.numberOfBitsOfData, false ) == false )
 		{
 
-			RakAssert( 0 );
+			//RakAssert( 0 );
 
 			#if defined(_COMPATIBILITY_1)
 			delete [] userData;
