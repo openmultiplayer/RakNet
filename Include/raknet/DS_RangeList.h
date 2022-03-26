@@ -15,8 +15,8 @@ namespace RakNet
 			RangeNode() {}
 			~RangeNode() {}
 			RangeNode(range_type min, range_type max) {minIndex=min; maxIndex=max;}
-			range_type minIndex;
-			range_type maxIndex;
+			range_type minIndex = 0;
+			range_type maxIndex = 0;
 		};
 
 
