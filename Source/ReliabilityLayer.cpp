@@ -87,12 +87,8 @@ ReliabilityLayer::ReliabilityLayer() : updateBitStream( DEFAULT_MTU_SIZE )   // 
 #endif
 
 	freeThreadedMemoryOnNextUpdate = false;
-#ifdef _DEBUG
-	// Wait longer to disconnect in debug so I don't get disconnected while tracing
-	timeoutTime=30000;
-#else
+
 	timeoutTime=SAMPRakNet::GetTimeout();
-#endif
 
 #ifndef _RELEASE
 	maxSendBPS=minExtraPing=extraPingVariance=0;
