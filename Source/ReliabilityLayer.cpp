@@ -90,10 +90,6 @@ ReliabilityLayer::ReliabilityLayer() : updateBitStream( DEFAULT_MTU_SIZE )   // 
 
 	timeoutTime=SAMPRakNet::GetTimeout();
 
-#ifndef _RELEASE
-	maxSendBPS=minExtraPing=extraPingVariance=0;
-#endif
-
 	InitializeVariables();
 }
 
@@ -309,12 +305,6 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 
 		sendPacketSet[ i ].ClearAndForceAllocation( 32 ); // Preallocate the send lists so we don't do a bunch of reallocations unnecessarily
 	}
-
-#ifndef _RELEASE
-	for (unsigned i = 0; i < delayList.Size(); i++ )
-		delete delayList[ i ];
-	delayList.Clear();
-#endif
 
 	internalPacketPool.ClearPool();
 
@@ -1091,23 +1081,7 @@ void ReliabilityLayer::Update( SOCKET s, PlayerID playerId, int MTUSize, RakNetT
 		GenerateDatagram( &updateBitStream, MTUSize, &reliableDataSent, time, playerId, messageHandlerList );
 		if ( updateBitStream.GetNumberOfBitsUsed() > 0 )
 		{
-#ifndef _RELEASE
-			if (minExtraPing > 0 || extraPingVariance > 0)
-			{
-				// Delay the send to simulate lag
-				DataAndTime *dt;
-				dt = new DataAndTime;
-				memcpy( dt->data, updateBitStream.GetData(), updateBitStream.GetNumberOfBytesUsed() );
-				dt->length = updateBitStream.GetNumberOfBytesUsed();
-				dt->sendTime = time + (RakNetTimeNS)minExtraPing*1000;
-				if (extraPingVariance > 0)
-					dt->sendTime += ( randomMT() % (int)extraPingVariance );
-				delayList.Insert( dt );
-			}
-			else
-#endif
 			SendBitStream( s, playerId, &updateBitStream );
-
 			availableBandwidth-=updateBitStream.GetNumberOfBitsUsed()+UDP_HEADER_SIZE*8;
 		}
 		else
@@ -1225,30 +1199,6 @@ void ReliabilityLayer::Update( SOCKET s, PlayerID playerId, int MTUSize, RakNetT
 		if (++histogramReceiveMarker==(unsigned)-1)
 			histogramReceiveMarker=0;
 	}
-
-#ifndef _RELEASE
-	// Do any lagged sends
-	unsigned i = 0;
-	while ( i < delayList.Size() )
-	{
-		if ( delayList[ i ]->sendTime < time )
-		{
-			updateBitStream.Reset();
-			updateBitStream.Write( delayList[ i ]->data, delayList[ i ]->length );
-			// Send it now
-			SendBitStream( s, playerId, &updateBitStream );
-
-			delete delayList[ i ];
-			if (i != delayList.Size() - 1)
-				delayList[ i ] = delayList[ delayList.Size() - 1 ];
-			delayList.Del();
-		}
-
-		else
-			i++;
-	}
-#endif
-
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -1263,16 +1213,6 @@ void ReliabilityLayer::SendBitStream( SOCKET s, PlayerID playerId, RakNet::BitSt
 	int oldLength, length;
 
 	// sentFrames++;
-
-#ifndef _RELEASE
-	if (maxSendBPS>0)
-	{
-		double chanceToLosePacket = (double)currentBandwidth / (double)maxSendBPS;
-		if (frandomMT() < (float)chanceToLosePacket)
-			return;
-
-	}
-#endif
 
 	// Encode the whole bitstream if the encoder is defined.
 
@@ -1552,17 +1492,6 @@ bool ReliabilityLayer::AreAcksWaiting(void)
 	return acknowlegements.Size() > 0;
 }
 
-//-------------------------------------------------------------------------------------------------------
-void ReliabilityLayer::ApplyNetworkSimulator( double _maxSendBPS, RakNetTime _minExtraPing, RakNetTime _extraPingVariance )
-{
-#ifndef _RELEASE
-	maxSendBPS=_maxSendBPS;
-	minExtraPing=_minExtraPing;
-	extraPingVariance=_extraPingVariance;
-	if (ping < (unsigned int)(minExtraPing+extraPingVariance)*2)
-		ping=(minExtraPing+extraPingVariance)*2;
-#endif
-}
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::SetSplitMessageProgressInterval(int interval)
 {
@@ -2548,10 +2477,6 @@ void ReliabilityLayer::SetPing( RakNetTime i )
 		ping = i;
 	if (ping < 30)
 		ping=30; // Leave a buffer for variations in ping
-#ifndef _RELEASE
-	if (ping < (RakNetTime)(minExtraPing+extraPingVariance)*2)
-		ping=(minExtraPing+extraPingVariance)*2;
-#endif
 
 	UpdateNextActionTime();
 }

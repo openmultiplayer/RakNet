@@ -454,16 +454,6 @@ RakNetStatisticsStruct * RakServer::GetStatistics( const PlayerID playerId )
 	return RakPeer::GetStatistics( playerId );
 }
 
-void RakServer::ApplyNetworkSimulator( double maxSendBPS, unsigned short minExtraPing, unsigned short extraPingVariance)
-{
-	RakPeer::ApplyNetworkSimulator( maxSendBPS, minExtraPing, extraPingVariance );
-}
-
-bool RakServer::IsNetworkSimulatorActive( void )
-{
-	return RakPeer::IsNetworkSimulatorActive();
-}
-
 RakPeer::RemoteSystemStruct* RakServer::GetRemoteSystemFromPlayerID(const PlayerID playerId)
 {
 	return RakPeer::GetRemoteSystemFromPlayerID(playerId, false, false);

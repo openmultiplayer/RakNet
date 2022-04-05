@@ -51,8 +51,6 @@ RakNetCommandParser::RakNetCommandParser()
 	RegisterCommand(4,"AdvertiseSystem","( const char *host, unsigned short remotePort, const char *data, int dataLength );");
 	RegisterCommand(2,"SetIncomingPassword","( const char* passwordData, int passwordDataLength );");
 	RegisterCommand(0,"GetIncomingPassword","( void );");
-	RegisterCommand(3,"ApplyNetworkSimulator","( double maxSendBPS, unsigned short minExtraPing, unsigned short extraPingVariance);");
-	RegisterCommand(0,"IsNetworkSimulatorActive","( void );");
 }
 RakNetCommandParser::~RakNetCommandParser()
 {
@@ -245,15 +243,6 @@ bool RakNetCommandParser::OnCommand(const char *command, unsigned numParameters,
 	{
 		peer->AdvertiseSystem(parameterList[0], (unsigned short) atoi(parameterList[1]),parameterList[2],atoi(parameterList[3]));
 		ReturnResult(command, transport, playerId);
-	}
-	else if (strcmp(command, "ApplyNetworkSimulator")==0)
-	{
-		peer->ApplyNetworkSimulator(atof(parameterList[0]), (unsigned short) atoi(parameterList[1]),(unsigned short) atoi(parameterList[2]));
-		ReturnResult(command, transport, playerId);
-	}
-	else if (strcmp(command, "IsNetworkSimulatorActive")==0)
-	{
-		ReturnResult(peer->IsNetworkSimulatorActive(), command, transport, playerId);
 	}
 	else if (strcmp(command, "SetIncomingPassword")==0)
 	{

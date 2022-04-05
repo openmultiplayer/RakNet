@@ -435,18 +435,6 @@ namespace RakNet
 		/// \sa RakNetStatistics.h
 		RakNetStatisticsStruct * GetStatistics( const PlayerID playerId ) override;
 
-		/// Adds simulated ping and packet loss to the outgoing data flow.
-		/// To simulate bi-directional ping and packet loss, you should call this on both the sender and the recipient, with half the total ping and maxSendBPS value on each.
-		/// You can exclude network simulator code with the _RELEASE #define to decrease code size
-		/// \param[in] maxSendBPS Maximum bits per second to send.  Packetloss grows linearly.  0 to disable.
-		/// \param[in] minExtraPing The minimum time to delay sends.
-		/// \param[in] extraPingVariance The additional random time to delay sends.
-		void ApplyNetworkSimulator( double maxSendBPS, unsigned short minExtraPing, unsigned short extraPingVariance) override;
-
-		/// Returns if you previously called ApplyNetworkSimulator
-		/// \return If you previously called ApplyNetworkSimulator
-		virtual bool IsNetworkSimulatorActive( void ) override;
-
 		/// Return the SAMPRakNet RemoteSystemData for a player ID
 		virtual SAMPRakNet::RemoteSystemData GetSAMPDataFromPlayerID(const PlayerID playerId) override;
 

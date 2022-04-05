@@ -391,18 +391,6 @@ namespace RakNet
 		/// \sa RakNetStatistics.h
 		RakNetStatisticsStruct * GetStatistics( void ) override;
 
-		/// Adds simulated ping and packet loss to the outgoing data flow.
-		/// To simulate bi-directional ping and packet loss, you should call this on both the sender and the recipient, with half the total ping and maxSendBPS value on each.
-		/// You can exclude network simulator code with the _RELEASE #define to decrease code size
-		/// \param[in] maxSendBPS The maximum window size for the windowing algorithm before 100% packetloss.  The chance of each packet being lost is RakNetStatisticsStruct::windowSize / maxSendBPS .  Recommended you set this between 100 and 1000 with lower numbers corresponding to greater packetloss.  This approximates the real condition where the more data you send the more likely you are to lose data.  Call with 0 to disable.
-		/// \param[in] minExtraPing The minimum time to delay sends.
-		/// \param[in] extraPingVariance The additional random time to delay sends.
-		void ApplyNetworkSimulator( double maxSendBPS, unsigned short minExtraPing, unsigned short extraPingVariance) override;
-
-		/// Returns if you previously called ApplyNetworkSimulator
-		/// \return If you previously called ApplyNetworkSimulator
-		bool IsNetworkSimulatorActive( void ) override;
-		
 		/// @internal 
 		/// Retrieve the player index corresponding to this client. 
 		PlayerIndex GetPlayerIndex( void ) override;
