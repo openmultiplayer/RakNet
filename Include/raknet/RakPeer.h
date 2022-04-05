@@ -465,19 +465,6 @@ namespace RakNet
 		// \param[in] routerInterface The router to use to route messages to systems not directly connected to this system.
 		void RemoveRouterInterface( RouterInterface *routerInterface ) override;
 
-		// --------------------------------------------------------------------------------------------Network Simulator Functions--------------------------------------------------------------------------------------------
-		/// Adds simulated ping and packet loss to the outgoing data flow.
-		/// To simulate bi-directional ping and packet loss, you should call this on both the sender and the recipient, with half the total ping and maxSendBPS value on each.
-		/// You can exclude network simulator code with the _RELEASE #define to decrease code size
-		/// \param[in] maxSendBPS Maximum bits per second to send.  Packetloss grows linearly.  0 to disable.
-		/// \param[in] minExtraPing The minimum time to delay sends.
-		/// \param[in] extraPingVariance The additional random time to delay sends.
-		void ApplyNetworkSimulator( double maxSendBPS, unsigned short minExtraPing, unsigned short extraPingVariance) override;
-
-		/// Returns if you previously called ApplyNetworkSimulator
-		/// \return If you previously called ApplyNetworkSimulator
-		bool IsNetworkSimulatorActive( void ) override;
-
 		// --------------------------------------------------------------------------------------------Statistical Functions - Functions dealing with API performance--------------------------------------------------------------------------------------------
 
 		/// Returns a structure containing a large set of network statistics for the specified system.
@@ -764,12 +751,6 @@ namespace RakNet
 
 		// For redirecting sends through the router plugin.  Unfortunate I have to use this architecture.
 		RouterInterface *router;
-
-		// Nobody would use the internet simulator in a final build.
-	#ifndef _RELEASE
-		double _maxSendBPS;
-		unsigned short _minExtraPing, _extraPingVariance;
-	#endif
 
 	#if !defined(_COMPATIBILITY_1)
 		/// Encryption and security

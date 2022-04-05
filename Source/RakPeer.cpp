@@ -198,12 +198,6 @@ RakPeer::RakPeer()
 #if defined (_WIN32) && defined(USE_WAIT_FOR_MULTIPLE_EVENTS)
 	recvEvent = INVALID_HANDLE_VALUE;
 #endif
-
-#ifndef _RELEASE
-	_maxSendBPS=0.0;
-	_minExtraPing=0;
-	_extraPingVariance=0;
-#endif
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -294,9 +288,6 @@ bool RakPeer::Initialize( unsigned short maxConnections, unsigned short localPor
 		{
 			// remoteSystemList in Single thread
 			remoteSystemList[ i ].isActive = false;
-			#ifndef _RELEASE
-			remoteSystemList[ i ].reliabilityLayer.ApplyNetworkSimulator(_maxSendBPS, _minExtraPing, _extraPingVariance);
-			#endif
 		}
 
 		// Clear the lookup table.  Safe to call from the user thread since the network thread is now stopped
@@ -2447,35 +2438,6 @@ void RakPeer::RemoveRouterInterface( RouterInterface *routerInterface )
 {
 	if (router==routerInterface)
 		router=0;
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// Adds simulated ping and packet loss to the outgoing data flow.
-// To simulate bi-directional ping and packet loss, you should call this on both the sender and the recipient, with half the total ping and maxSendBPS value on each.
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::ApplyNetworkSimulator( double maxSendBPS, unsigned short minExtraPing, unsigned short extraPingVariance)
-{
-#ifndef _RELEASE
-	if (remoteSystemList)
-	{
-		unsigned short i;
-		for (i=0; i < maximumNumberOfPeers; i++)
-		//for (i=0; i < remoteSystemListSize; i++)
-			remoteSystemList[i].reliabilityLayer.ApplyNetworkSimulator(maxSendBPS, minExtraPing, extraPingVariance);
-	}
-
-	_maxSendBPS=maxSendBPS;
-	_minExtraPing=minExtraPing;
-	_extraPingVariance=extraPingVariance;
-#endif
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// Returns if you previously called ApplyNetworkSimulator
-// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-bool RakPeer::IsNetworkSimulatorActive( void )
-{
-	return _maxSendBPS>0 || _minExtraPing>0 || _extraPingVariance>0;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
