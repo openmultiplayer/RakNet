@@ -50,7 +50,7 @@ target_include_directories(raknet
 )
 
 if (WIN32)
-	target_link_libraries(raknet Ws2_32 SDK)
+	target_link_libraries(raknet Ws2_32 OMP-SDK)
 else()
-	target_link_libraries(raknet SDK)
+	target_link_libraries(raknet OMP-SDK)
 endif()
