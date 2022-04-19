@@ -1261,10 +1261,9 @@ unsigned ReliabilityLayer::GenerateDatagram( RakNet::BitStream *output, int MTUS
 	InternalPacket * internalPacket;
 //	InternalPacket *temp;
 	int maxDataBitSize;
-	int reliableBits = 0;
 	int nextPacketBitLength;
 	unsigned i, messageHandlerIndex;
-	bool isReliable, onlySendUnreliable;
+	bool isReliable;
 	bool writeFalseToHeader;
 	unsigned messagesSent=0;
 
@@ -1376,10 +1375,6 @@ unsigned ReliabilityLayer::GenerateDatagram( RakNet::BitStream *output, int MTUS
 		}
 	}
 
-
-	onlySendUnreliable = false;
-
-
 	// From highest to lowest priority, fill up the output bitstream from the send lists
 	for ( i = 0; i < NUMBER_OF_PRIORITIES; i++ )
 	{
@@ -1440,7 +1435,6 @@ unsigned ReliabilityLayer::GenerateDatagram( RakNet::BitStream *output, int MTUS
 			if ( isReliable )
 			{
 				// Reliable packets are saved to resend later
-				reliableBits += internalPacket->dataBitLength;
 				internalPacket->nextActionTime = time + ackTimeIncrement;
 				internalPacket->histogramMarker=histogramReceiveMarker;
 				resendList.Insert( internalPacket->messageNumber, internalPacket);
@@ -1550,18 +1544,12 @@ unsigned ReliabilityLayer::RemovePacketFromResendListAndDeleteOlderReliableSeque
 {
 	InternalPacket * internalPacket;
 	//InternalPacket *temp;
-	PacketReliability reliability; // What type of reliability algorithm to use with this packet
-	unsigned char orderingChannel; // What ordering channel this packet is on, if the reliability type uses ordering channels
-	OrderingIndexType orderingIndex; // The ID used as identification for ordering channels
 //	unsigned j;
 
 	bool deleted;
 	deleted=resendList.Delete(messageNumber, internalPacket);
 	if (deleted)
 	{
-		reliability = internalPacket->reliability;
-		orderingChannel = internalPacket->orderingChannel;
-		orderingIndex = internalPacket->orderingIndex;
 //		delete [] internalPacket->data;
 //		internalPacketPool.ReleasePointer( internalPacket );
 		internalPacket->nextActionTime=0; // Will be freed in the update function

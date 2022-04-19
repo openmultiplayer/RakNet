@@ -240,7 +240,7 @@ bool CSHA1::HashFile( char *szFileName )
 
 void CSHA1::Final()
 {
-	unsigned int i = 0, j = 0;
+	unsigned int i = 0;
 	unsigned char finalcount[ 8 ] =
 	{
 		0, 0, 0, 0, 0, 0, 0, 0
@@ -264,8 +264,6 @@ void CSHA1::Final()
 
 	// Wipe variables for security reasons
 	i = 0;
-
-	j = 0;
 
 	memset( m_buffer, 0, 64 );
 
