@@ -578,10 +578,6 @@ bool RakPeer::Connect( const char* host, unsigned short remotePort, char* passwo
 	if ( host == 0 || endThreads || connectionSocket == INVALID_SOCKET )
 		return false;
 
-	unsigned numberOfFreeSlots;
-
-	numberOfFreeSlots = 0;
-
 	//if (passwordDataLength>MAX_OFFLINE_DATA_LENGTH)
 	//	passwordDataLength=MAX_OFFLINE_DATA_LENGTH;
 	if (passwordDataLength>255)
@@ -2925,15 +2921,12 @@ bool RakPeer::HandleRPCPacket( const char *data, int length, PlayerID playerId, 
 #else
 	RPCID uniqueIdentifier;
 #endif
-//	unsigned int bitLength;
 	unsigned char *userData;
-	//bool hasTimestamp;
-	bool nameIsEncoded, networkIDIsEncoded;
+	bool networkIDIsEncoded;
 	RPCIndex rpcIndex;
 	RPCNode *node;
 	RPCParameters rpcParms;
 	NetworkID networkID;
-	bool blockingCommand;
 	RakNet::BitStream replyToSender;
 	rpcParms.replyToSender=&replyToSender;
 
@@ -2978,7 +2971,6 @@ bool RakPeer::HandleRPCPacket( const char *data, int length, PlayerID playerId, 
 		}
 	}
 #else
-	nameIsEncoded = false;
 	if ( incomingBitStream.Read( uniqueIdentifier ) == false )
 	{
 
@@ -2989,9 +2981,7 @@ bool RakPeer::HandleRPCPacket( const char *data, int length, PlayerID playerId, 
 	rpcIndex = rpcMap.GetIndexFromFunctionName(uniqueIdentifier);
 #endif
 
-#if RAKNET_LEGACY
-	blockingCommand = false;
-#else
+#if !RAKNET_LEGACY
 	if ( incomingBitStream.Read( blockingCommand ) == false )
 	{
 
@@ -4745,7 +4735,7 @@ namespace RakNet
 							byteSize == 1 + 20 + sizeof( RSA_BIT_SIZE ) )
 						{
 							CSHA1 sha1;
-							bool confirmedHash, newRandNumber;
+							bool confirmedHash;
 
 							confirmedHash = false;
 
@@ -4756,8 +4746,6 @@ namespace RakNet
 							sha1.Update( ( unsigned char* ) & playerId.port, sizeof( playerId.port ) );
 							sha1.Update( ( unsigned char* ) & ( newRandomNumber ), 20 );
 							sha1.Final();
-
-							newRandNumber = false;
 
 							// Confirm if
 							//syn-cookie ?= HASH(source ip address + source port + last random number)
