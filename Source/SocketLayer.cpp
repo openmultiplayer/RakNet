@@ -361,15 +361,9 @@ int SocketLayer::RecvFrom( const SOCKET s, RakPeer *rakPeer, int *errorCode )
 	// if (len>0)
 	//  printf("Got packet on port %i\n",ntohs(sa.sin_port));
 
-	if ( len == 0 )
+	if (len < 1 && len != -1) 
 	{
-#ifdef _DEBUG
-		printf( "Error: recvfrom returned 0 on a connectionless blocking call\non port %i.  This is a bug with Zone Alarm.  Please turn off Zone Alarm.\n", ntohs( sa.sin_port ) );
-		RakAssert( 0 );
-#endif
-
-		*errorCode = SOCKET_ERROR;
-		return SOCKET_ERROR;
+        return 1;
 	}
 
 	if ( len != SOCKET_ERROR )
