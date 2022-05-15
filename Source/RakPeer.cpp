@@ -1585,7 +1585,7 @@ void RakPeer::ClearBanList( void )
 	for ( ; index < banList.Size(); index++ )
 	{
 		delete [] banList[ index ]->IP;
-		delete [] banList[ index ];
+		delete banList[ index ];
 	}
 
 	banList.Clear();
