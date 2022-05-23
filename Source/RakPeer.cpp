@@ -2750,20 +2750,19 @@ void RakPeer::OnConnectionRequest( RakPeer::RemoteSystemStruct *remoteSystem, un
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::NotifyAndFlagForDisconnect( const PlayerID playerId, bool performImmediate, unsigned char orderingChannel )
+void RakPeer::NotifyAndFlagForDisconnect(const PlayerID playerId, bool performImmediate, unsigned char orderingChannel)
 {
-	RakNet::BitStream temp( sizeof(unsigned char) );
-	temp.Write( (unsigned char) ID_DISCONNECTION_NOTIFICATION );
-	if (performImmediate)
-	{
-		SendImmediate((char*)temp.GetData(), temp.GetNumberOfBitsUsed(), LOW_PRIORITY, RELIABLE_ORDERED, orderingChannel, playerId, false, false, RakNet::GetTime());
-		RemoteSystemStruct *rss=GetRemoteSystemFromPlayerID(playerId, true, true);
-		rss->connectMode=RemoteSystemStruct::DISCONNECT_ASAP;
-	}
-	else
-	{
-		SendBuffered((const char*)temp.GetData(), temp.GetNumberOfBitsUsed(), LOW_PRIORITY, RELIABLE_ORDERED, orderingChannel, playerId, false, RemoteSystemStruct::DISCONNECT_ASAP);
-	}
+    RakNet::BitStream temp(sizeof(unsigned char));
+    temp.Write((unsigned char)ID_DISCONNECTION_NOTIFICATION);
+    if (performImmediate) {
+        SendImmediate((char*)temp.GetData(), temp.GetNumberOfBitsUsed(), LOW_PRIORITY, RELIABLE_ORDERED, orderingChannel, playerId, false, false, RakNet::GetTime());
+        RemoteSystemStruct* rss = GetRemoteSystemFromPlayerID(playerId, true, true);
+        if (rss) {
+            rss->connectMode = RemoteSystemStruct::DISCONNECT_ASAP;
+        }
+    } else {
+        SendBuffered((const char*)temp.GetData(), temp.GetNumberOfBitsUsed(), LOW_PRIORITY, RELIABLE_ORDERED, orderingChannel, playerId, false, RemoteSystemStruct::DISCONNECT_ASAP);
+    }
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 unsigned short RakPeer::GetNumberOfRemoteInitiatedConnections( void ) const
