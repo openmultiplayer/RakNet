@@ -56,7 +56,7 @@ namespace RakNet
 		///  Number of bits resent of actual data
 		unsigned messageDataBitsResent;
 		///  Total number of bits resent, including headers
-		unsigned messagesTotalBitsResent;
+		unsigned long long messagesTotalBitsResent;
 		///  Number of messages waiting for ack (// TODO - rename this)
 		unsigned messagesOnResendQueue;
 		
@@ -73,7 +73,7 @@ namespace RakNet
 		///  Number of bits added by encryption
 		unsigned encryptionBitsSent;
 		///  total bits sent
-		unsigned totalBitsSent;
+		unsigned long long totalBitsSent;
 		
 		///  Number of sequenced messages arrived out of order
 		unsigned sequencedMessagesOutOfOrder;
