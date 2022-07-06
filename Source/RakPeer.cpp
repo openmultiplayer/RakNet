@@ -4029,8 +4029,9 @@ namespace RakNet
 			{
 				if ( !minConnectionLogTick || tickTime - minConnectionLogTick > configuredMinConnTime )
 				{
-					SAMPRakNet::GetCore()->printLn(
-                        "Warning: Minimum time between new connections (%u) exceeded for %s. Ignoring the request.",
+					SAMPRakNet::GetCore()->logLn(
+						LogLevel::Warning,
+                        "Minimum time between new connections (%u) exceeded for %s. Ignoring the request.",
                         configuredMinConnTime,
 						playerId.ToString()
 					);
