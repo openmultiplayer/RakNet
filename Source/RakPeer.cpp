@@ -178,6 +178,7 @@ RakPeer::RakPeer()
 	trackFrequencyTable = false;
 	maximumIncomingConnections = 0;
 	maximumNumberOfPeers = 0;
+	activePeersCount = 0;
 	//remoteSystemListSize=0;
 	remoteSystemList = 0;
 	bytesSentPerSecond = bytesReceivedPerSecond = 0;
@@ -292,6 +293,7 @@ bool RakPeer::Initialize( unsigned short maxConnections, unsigned short localPor
 
 		// Clear the lookup table.  Safe to call from the user thread since the network thread is now stopped
 		remoteSystemLookup.Clear();
+		activePeersCount = 0;
 	}
 
 	// For histogram statistics
@@ -697,6 +699,7 @@ void RakPeer::Disconnect( unsigned int blockDuration, unsigned char orderingChan
 	// Setting remoteSystemListSize prevents threads from accessing the reliability layer
 	maximumNumberOfPeers = 0;
 	//remoteSystemListSize = 0;
+	activePeersCount = 0;
 
 	// Free any packets the user didn't deallocate
 	Packet **packet;
@@ -2752,6 +2755,8 @@ void RakPeer::OnConnectionRequest( RakPeer::RemoteSystemStruct *remoteSystem, un
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::NotifyAndFlagForDisconnect(const PlayerID playerId, bool performImmediate, unsigned char orderingChannel)
 {
+	SAMPRakNet::SetRequestingConnection(playerId.binaryAddress, false);
+
     RakNet::BitStream temp(sizeof(unsigned char));
     temp.Write((unsigned char)ID_DISCONNECTION_NOTIFICATION);
     if (performImmediate) {
@@ -2794,6 +2799,9 @@ RakPeer::RemoteSystemStruct * RakPeer::AssignPlayerIDToRemoteSystemList( const P
 
 	RakAssert(playerId!=UNASSIGNED_PLAYER_ID);
 
+	// Check if maximum number of peers is reached .. without looping them.
+	if (activePeersCount == maximumNumberOfPeers)
+		return 0;
 
 	// remoteSystemList in user thread
 	for ( i = 0; i < maximumNumberOfPeers; i++ )
@@ -2835,6 +2843,7 @@ RakPeer::RemoteSystemStruct * RakPeer::AssignPlayerIDToRemoteSystemList( const P
 			playerIDAndIndex.index=i;
 			remoteSystemLookup.Insert(playerId,playerIDAndIndex);
 
+			++activePeersCount;
 			return remoteSystem;
 		}
 	}
@@ -3448,6 +3457,8 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 	}
 	else
 	{
+		SAMPRakNet::SetRequestingConnection(target.binaryAddress, false);
+
 		if (performImmediate)
 		{
 			i = 0;
@@ -3459,6 +3470,8 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 				{
 					// Found the index to stop
 					remoteSystemList[ i ].isActive=false;
+
+					--activePeersCount;
 
 					// Reserve this reliability layer for ourselves
 					//remoteSystemList[ i ].playerId = UNASSIGNED_PLAYER_ID;
@@ -4010,9 +4023,11 @@ namespace RakNet
 		// Therefore, this datagram must be under 17 bits - otherwise it may be normal network traffic as the min size for a raknet send is 17 bits
 		else if ((unsigned char)(data)[0] == ID_OPEN_CONNECTION_REQUEST && length == sizeof(unsigned char)*3)
 		{
-			if ((*(uint16_t*)(data + 1) ^ 0x6969/* Petarded [S04E06] */) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress))) {
+			if ((*(uint16_t*)(data + 1) ^ 0x6969 /* Petarded [S04E06] */) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress)))
+			{
 #ifdef _DO_PRINTF
-				if (SAMPRakNet::ShouldLogCookies()) {
+				if (SAMPRakNet::ShouldLogCookies())
+				{
 					SAMPRakNet::GetCore()->printLn("%s requests connection cookie", playerId.ToString());
 				}
 #endif
@@ -4023,22 +4038,25 @@ namespace RakNet
 				return;
 			}
 
+			if (SAMPRakNet::IsAlreadyRequestingConnection(binaryAddress))
+				return;
+
 			RakNetTime configuredMinConnTime = SAMPRakNet::GetMinConnectionTime();
 			RakNetTime tickTime = RakNet::GetTime();
-			if ( minConnectionTick && configuredMinConnTime > 0 && tickTime - minConnectionTick < configuredMinConnTime )
+			if (minConnectionTick && configuredMinConnTime > 0 && tickTime - minConnectionTick < configuredMinConnTime)
 			{
-				if ( !minConnectionLogTick || tickTime - minConnectionLogTick > configuredMinConnTime )
+				if (!minConnectionLogTick || tickTime - minConnectionLogTick > configuredMinConnTime)
 				{
 					SAMPRakNet::GetCore()->logLn(
 						LogLevel::Warning,
-                        "Minimum time between new connections (%u) exceeded for %s. Ignoring the request.",
-                        configuredMinConnTime,
-						playerId.ToString()
-					);
+						"Minimum time between new connections (%u) exceeded for %s. Ignoring the request.",
+						configuredMinConnTime,
+						playerId.ToString());
 					minConnectionLogTick = tickTime;
 				}
 				return;
 			}
+
 			minConnectionTick = tickTime;
 
 			for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
@@ -4063,6 +4081,11 @@ namespace RakNet
 				for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
 					rakPeer->messageHandlerList[i]->OnDirectSocketSend((char*)&c, 16, playerId);
 				SocketLayer::Instance()->SendTo( rakPeer->connectionSocket, (char*)&c, 2, playerId.binaryAddress, playerId.port );
+
+				if (rss)
+				{
+					SAMPRakNet::SetRequestingConnection(binaryAddress, true);
+				}
 
 				return;
 			}

@@ -28,6 +28,8 @@ typedef int SOCKET;
 
 #define MAX_UNVERIFIED_RPCS (5)
 
+#include <shared_mutex>
+
 class SAMPRakNet
 {
 public:
@@ -93,6 +95,22 @@ public:
 
 	static ICore* GetCore() { return core_; }
 
+	static bool IsAlreadyRequestingConnection(unsigned int binaryAddress)
+	{
+		std::shared_lock<std::shared_mutex> lock(incomingConnectionsMutex_);
+		return incomingConnections_.find(binaryAddress) != incomingConnections_.end();
+	}
+
+	static void SetRequestingConnection(unsigned int binaryAddress, bool status)
+	{
+		std::unique_lock lock(incomingConnectionsMutex_);
+
+		if (status)
+			incomingConnections_.insert(binaryAddress);
+		else
+			incomingConnections_.erase(binaryAddress);
+	}
+
 private:
 	static uint8_t buffer_[MAXIMUM_MTU_SIZE];
 	static uint32_t token_;
@@ -106,4 +124,6 @@ private:
     static unsigned int acksLimit_;
     static unsigned int networkLimitsBanTime_;
 	static ICore* core_;
+	static FlatHashSet<uint32_t> incomingConnections_;
+	static std::shared_mutex incomingConnectionsMutex_;
 };
