@@ -4614,6 +4614,9 @@ namespace RakNet
 								remoteSystem->connectMode==RemoteSystemStruct::SET_ENCRYPTION_ON_MULTIPLE_16_BYTE_PACKET ||
 								playerId==myPlayerId) // local system connect
 							{
+
+								SAMPRakNet::SetRequestingConnection(playerId.binaryAddress, false);
+
 								remoteSystem->connectMode=RemoteSystemStruct::CONNECTED;
 								PingInternal( playerId, true );
 								SendStaticDataInternal( playerId, true );
