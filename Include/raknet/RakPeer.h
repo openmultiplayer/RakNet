@@ -576,6 +576,10 @@ namespace RakNet
 		bool occasionalPing;  /// Do we occasionally ping the other systems?*/
 		///Store the maximum number of peers allowed to connect
 		unsigned short maximumNumberOfPeers;
+
+		///Store number of active peers.
+		unsigned short activePeersCount;
+
 		//05/02/06 Just using maximumNumberOfPeers instead
 		///Store the maximum number of peers able to connect, including reserved connection slots for pings, etc.
 		//unsigned short remoteSystemListSize;
