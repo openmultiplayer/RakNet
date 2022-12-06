@@ -2755,8 +2755,6 @@ void RakPeer::OnConnectionRequest( RakPeer::RemoteSystemStruct *remoteSystem, un
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::NotifyAndFlagForDisconnect(const PlayerID playerId, bool performImmediate, unsigned char orderingChannel)
 {
-	SAMPRakNet::SetRequestingConnection(playerId.binaryAddress, false);
-
     RakNet::BitStream temp(sizeof(unsigned char));
     temp.Write((unsigned char)ID_DISCONNECTION_NOTIFICATION);
     if (performImmediate) {
@@ -3457,8 +3455,6 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 	}
 	else
 	{
-		SAMPRakNet::SetRequestingConnection(target.binaryAddress, false);
-
 		if (performImmediate)
 		{
 			i = 0;
@@ -3470,8 +3466,9 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 				{
 					// Found the index to stop
 					remoteSystemList[ i ].isActive=false;
+					-- activePeersCount;
 
-					--activePeersCount;
+					SAMPRakNet::SetRequestingConnection(target.binaryAddress, false);
 
 					// Reserve this reliability layer for ourselves
 					//remoteSystemList[ i ].playerId = UNASSIGNED_PLAYER_ID;
