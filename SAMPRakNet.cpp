@@ -17,7 +17,6 @@ unsigned int SAMPRakNet::networkLimitsBanTime_ = 60000;
 bool SAMPRakNet::logCookies_ = false;
 ICore* SAMPRakNet::core_ = nullptr;
 FlatHashSet<uint32_t> SAMPRakNet::incomingConnections_;
-std::shared_mutex SAMPRakNet::incomingConnectionsMutex_;
 
 uint16_t
 SAMPRakNet::
