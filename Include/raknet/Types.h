@@ -93,7 +93,7 @@
 	defined(__alpha__) || defined(__alpha) || defined(__ia64) || defined(__ia64__) || \
 	defined(_M_ALPHA) || defined(ns32000) || defined(__ns32000__) || defined(sequent) || \
 	defined(MIPSEL) || defined(_MIPSEL) || defined(sun386) || defined(__sun386__) || \
-	defined(__arm__)
+	defined(__arm__) || defined(__APPLE__)
 
 # define HOST_ENDIAN_IS_LITTLE
 
@@ -132,7 +132,7 @@ namespace cat
 	defined(__alpha__) || defined(__alpha) || defined(__ia64) || defined(__ia64__) || \
 	defined(_M_ALPHA) || defined(ns32000) || defined(__ns32000__) || defined(sequent) || \
 	defined(MIPSEL) || defined(_MIPSEL) || defined(sun386) || defined(__sun386__) || \
-	defined(__arm__)
+	defined(__arm__) || defined(__APPLE__)
 
 # define LITTLE_ENDIAN
 
