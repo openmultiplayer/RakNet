@@ -4035,26 +4035,34 @@ namespace RakNet
 				return;
 			}
 
-			if (SAMPRakNet::IsAlreadyRequestingConnection(binaryAddress))
-				return;
-
-			RakNetTime configuredMinConnTime = SAMPRakNet::GetMinConnectionTime();
-			RakNetTime tickTime = RakNet::GetTime();
-			if (minConnectionTick && configuredMinConnTime > 0 && tickTime - minConnectionTick < configuredMinConnTime)
+			if (binaryAddress == LOCALHOST)
 			{
-				if (!minConnectionLogTick || tickTime - minConnectionLogTick > configuredMinConnTime)
-				{
-					SAMPRakNet::GetCore()->logLn(
-						LogLevel::Warning,
-						"Minimum time between new connections (%u) exceeded for %s. Ignoring the request.",
-						configuredMinConnTime,
-						playerId.ToString());
-					minConnectionLogTick = tickTime;
-				}
+				// Allow unlimited connections from localhost (testing and bots).
+			}
+			else if (SAMPRakNet::IsAlreadyRequestingConnection(binaryAddress))
+			{
 				return;
 			}
+			else
+			{
+				RakNetTime configuredMinConnTime = SAMPRakNet::GetMinConnectionTime();
+				RakNetTime tickTime = RakNet::GetTime();
+				if (minConnectionTick && configuredMinConnTime > 0 && tickTime - minConnectionTick < configuredMinConnTime)
+				{
+					if (!minConnectionLogTick || tickTime - minConnectionLogTick > configuredMinConnTime)
+					{
+						SAMPRakNet::GetCore()->logLn(
+							LogLevel::Warning,
+							"Minimum time between new connections (%u) exceeded for %s. Ignoring the request.",
+							configuredMinConnTime,
+							playerId.ToString());
+						minConnectionLogTick = tickTime;
+					}
+					return;
+				}
 
-			minConnectionTick = tickTime;
+				minConnectionTick = tickTime;
+			}
 
 			for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
 				rakPeer->messageHandlerList[i]->OnDirectSocketReceive(data, length*8, playerId);
