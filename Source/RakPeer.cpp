@@ -2456,6 +2456,43 @@ RPCMap* RakPeer::GetRPCMap( const PlayerID playerId)
 	}
 }
 
+unsigned short RakPeer::GetNumberOfUnverifiedInstances(const unsigned int binaryAddress)
+{
+	unsigned short result = 0;
+	if (remoteSystemList && endThreads != true)
+	{
+		RemoteSystemStruct* pSystem = remoteSystemList;
+		for (unsigned short i = 0; i < maximumNumberOfPeers; i++)
+		{
+			if (pSystem && pSystem->isActive
+				&& pSystem->playerId.binaryAddress == binaryAddress
+				&& (pSystem->connectMode == RemoteSystemStruct::UNVERIFIED_SENDER
+				|| pSystem->isLogon == false))
+			{
+				result++;
+			}
+			pSystem++;
+		}
+	}
+	return result;
+}
+
+unsigned short RakPeer::GetNumberOfActivePeers()
+{
+    unsigned short result = 0;
+    if (remoteSystemList && endThreads != 1)
+    {
+        for (int i = 0; i < maximumNumberOfPeers; i++)
+        {
+            if (remoteSystemList[i].isActive)
+            {
+                result++;
+            }
+        }
+    }
+    return result;
+}
+
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RakNetStatisticsStruct * RakPeer::GetStatistics( const PlayerID playerId )
 {
@@ -2831,6 +2868,7 @@ RakPeer::RemoteSystemStruct * RakPeer::AssignPlayerIDToRemoteSystemList( const P
 			remoteSystem->myExternalPlayerId = UNASSIGNED_PLAYER_ID;
 			remoteSystem->setAESKey=false;
 			remoteSystem->lastReliableSend=time;
+			remoteSystem->isLogon=false;
 
 			// Reserve this reliability layer for ourselves.
 			remoteSystem->reliabilityLayer.Reset(true);
@@ -4069,8 +4107,28 @@ namespace RakNet
 
 			// If this guy is already connected and they initiated the connection, ignore the connection request
 			RakPeer::RemoteSystemStruct *rss = rakPeer->GetRemoteSystemFromPlayerID( playerId, true, true );
+			static unsigned int s_uiLastProcessedBinaryAddr = 0;
+			static unsigned int s_uiLastProcessedConnTick = 0;
 			if (rss==0 || rss->weInitiatedTheConnection==true)
 			{
+				if (rakPeer->GetNumberOfUnverifiedInstances(binaryAddress) > 30)
+				{
+					SAMPRakNet::GetCore()->printLn("Blocking %s due to a 'server full' attack (1)", playerId.ToString());
+					rakPeer->AddToBanList(rakPeer->PlayerIDToDottedIP(playerId), 120000);
+					return;
+				}
+
+				if (playerId.binaryAddress == s_uiLastProcessedBinaryAddr
+						&& RakNet::GetTime() - s_uiLastProcessedConnTick < 30000
+						&& rakPeer->GetNumberOfActivePeers() == (rakPeer->GetMaximumNumberOfPeers() - 1))
+				{
+					SAMPRakNet::GetCore()->printLn("Blocking %s due to a 'server full' attack (2)", playerId.ToString());
+					rakPeer->AddToBanList(rakPeer->PlayerIDToDottedIP(playerId), 120000);
+					return;
+				}
+
+
+
 				// Assign new remote system
 				if (rss==0)
 					rss=rakPeer->AssignPlayerIDToRemoteSystemList(playerId, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER);
@@ -4510,9 +4568,34 @@ namespace RakNet
 					continue;
 				}
 
-				// Ping this guy if it is time to do so
-				if ( remoteSystem->connectMode==RemoteSystemStruct::CONNECTED && timeMS > remoteSystem->nextPingTime && ( occasionalPing || remoteSystem->lowestPing == (unsigned short)-1 ) )
+				// Taken from SA-MP 0.3.7 changes
+				if ((remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP || remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY) && timeMS - remoteSystem->lastReliableSend > 20000)
 				{
+					CloseConnectionInternal(playerId, false, true, 0);
+					continue;
+				}
+
+				// Ping this guy if it is time to do so
+				if ( remoteSystem->connectMode==RemoteSystemStruct::CONNECTED )
+				{
+					// Taken from SA-MP 0.3.7 changes
+					if (!remoteSystem->isLogon)
+					{
+						// Taken from SA-MP 0.3.7 changes
+						RakNetTime diff = RakNet::GetTime() - remoteSystem->connectionTime;
+						if (diff > 30000)
+						{
+							SAMPRakNet::GetCore()->printLn("Kicking %s because they didn't logon to the game.", PlayerIDToDottedIP(playerId));
+							CloseConnection(playerId, true);
+							continue;
+						}
+					}
+
+					if (timeMS > remoteSystem->nextPingTime && (occasionalPing || remoteSystem->lowestPing == (unsigned short)-1))
+					{
+						remoteSystem->nextPingTime = timeMS + 5000;
+						PingInternal(playerId, true);
+					}
 					remoteSystem->nextPingTime = timeMS + 5000;
 					PingInternal( playerId, true );
 				}
