@@ -4596,8 +4596,6 @@ namespace RakNet
 						remoteSystem->nextPingTime = timeMS + 5000;
 						PingInternal(playerId, true);
 					}
-					remoteSystem->nextPingTime = timeMS + 5000;
-					PingInternal( playerId, true );
 				}
 
 				// Find whoever has the lowest player ID
