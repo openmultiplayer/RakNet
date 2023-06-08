@@ -4,6 +4,10 @@
 #include <string>
 #include <vector>
 
+#include <RakPeer.h>
+#include <SocketLayer.h>
+#include <PacketEnumerations.h>
+
 uint8_t SAMPRakNet::buffer_[MAXIMUM_MTU_SIZE];
 uint32_t SAMPRakNet::token_;
 uint16_t SAMPRakNet::portNumber = 7777;
@@ -17,6 +21,7 @@ unsigned int SAMPRakNet::networkLimitsBanTime_ = 60000;
 bool SAMPRakNet::logCookies_ = false;
 ICore* SAMPRakNet::core_ = nullptr;
 FlatHashSet<uint32_t> SAMPRakNet::incomingConnections_;
+RakNet::RakNetTime SAMPRakNet::gracePeriod_ = 0;
 
 uint16_t
 SAMPRakNet::
@@ -899,4 +904,66 @@ uint16_t SAMPRakNet::GetCookie(unsigned int address)
 {
     const uint8_t* addressSplit = (const uint8_t*)&address;
     return (cookies[0][addressSplit[0]] | cookies[1][addressSplit[3]] << 8) ^ ((addressSplit[1] << 8) | addressSplit[2]);
+}
+
+bool SAMPRakNet::OnConnectionRequest(
+    SOCKET connectionSocket,
+    RakNet::PlayerID& playerId,
+    const char* data,
+    RakNet::RakNetTime& minConnectionTick,
+    RakNet::RakNetTime& minConnectionLogTick
+)
+{
+	if (playerId.binaryAddress == LOCALHOST)
+	{
+		// Allow unlimited connections from localhost (testing and bots).
+	}
+	else
+	{
+		RakNet::RakNetTime tickTime = RakNet::GetTime();
+		if (tickTime < gracePeriod_)
+		{
+			// Allow unlimited connections during the grace period
+		}
+		else if (SAMPRakNet::IsAlreadyRequestingConnection(playerId.binaryAddress))
+		{
+			return false;
+		}
+		else
+		{
+			RakNet::RakNetTime configuredMinConnTime = SAMPRakNet::GetMinConnectionTime();
+			if (minConnectionTick && configuredMinConnTime > 0 && tickTime - minConnectionTick < configuredMinConnTime)
+			{
+				if (!minConnectionLogTick || tickTime - minConnectionLogTick > configuredMinConnTime)
+				{
+					core_->logLn(
+						LogLevel::Warning,
+						"Minimum time between new connections (%u) exceeded for %s. Ignoring the request.",
+						configuredMinConnTime,
+						playerId.ToString());
+					minConnectionLogTick = tickTime;
+				}
+				return false;
+			}
+
+			minConnectionTick = tickTime;
+		}
+	}
+
+    if ((*(uint16_t*)(data + 1) ^ 0x6969 /* Petarded [S04E06] */) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress)))
+	{
+#ifdef _DO_PRINTF
+		if (SAMPRakNet::ShouldLogCookies())
+		{
+			core_->printLn("%s requests connection cookie", playerId.ToString());
+		}
+#endif
+		char c[3];
+		c[0] = RakNet::ID_OPEN_CONNECTION_COOKIE;
+		*(uint16_t*)&c[1] = (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress));
+		RakNet::SocketLayer::Instance()->SendTo(connectionSocket, (const char*)&c, 3, playerId.binaryAddress, playerId.port);
+		return false;
+	}
+
+    return true;
 }

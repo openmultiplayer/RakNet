@@ -26,7 +26,12 @@ typedef int SOCKET;
 
 #include "../../Server/Components/LegacyNetwork/Query/query.hpp"
 
+#include "Include/raknet/NetworkTypes.h"
+#include "Include/raknet/GetTime.h"
+
 #define MAX_UNVERIFIED_RPCS (5)
+
+#define LOCALHOST (0x0100007fu)
 
 #include <shared_mutex>
 
@@ -82,16 +87,19 @@ public:
 	static unsigned int GetMinConnectionTime() { return minConnectionTime_; }
 
 	static void SetMessagesLimit(unsigned int limit) { messagesLimit_ = limit; }
-    static unsigned int GetMessagesLimit() { return messagesLimit_; }
+	static unsigned int GetMessagesLimit() { return messagesLimit_; }
 
 	static void SetMessageHoleLimit(unsigned int limit) { messageHoleLimit_ = limit; }
-    static unsigned int GetMessageHoleLimit() { return messageHoleLimit_; }
+	static unsigned int GetMessageHoleLimit() { return messageHoleLimit_; }
 
 	static void SetAcksLimit(unsigned int limit) { acksLimit_ = limit; }
-    static unsigned int GetAcksLimit() { return acksLimit_; }
+	static unsigned int GetAcksLimit() { return acksLimit_; }
 
 	static void SetNetworkLimitsBanTime(unsigned int time) { networkLimitsBanTime_ = time; }
-    static unsigned int GetNetworkLimitsBanTime() { return networkLimitsBanTime_; }
+	static unsigned int GetNetworkLimitsBanTime() { return networkLimitsBanTime_; }
+
+	static void SetGracePeriod(unsigned int time) { gracePeriod_ = RakNet::GetTime() + time; }
+	static RakNet::RakNetTime GetGracePeriod() { return gracePeriod_; }
 
 	static ICore* GetCore() { return core_; }
 
@@ -108,6 +116,14 @@ public:
 			incomingConnections_.erase(binaryAddress);
 	}
 
+	static bool OnConnectionRequest(
+		SOCKET connectionSocket,
+		RakNet::PlayerID& playerId,
+		const char* data,
+		RakNet::RakNetTime& minConnectionTick,
+		RakNet::RakNetTime& minConnectionLogTick
+	);
+
 private:
 	static uint8_t buffer_[MAXIMUM_MTU_SIZE];
 	static uint32_t token_;
@@ -122,4 +138,5 @@ private:
     static unsigned int networkLimitsBanTime_;
 	static ICore* core_;
 	static FlatHashSet<uint32_t> incomingConnections_;
+	static RakNet::RakNetTime gracePeriod_;
 };

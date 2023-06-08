@@ -29,6 +29,8 @@
 #include "SimpleMutex.h"
 #include "DS_OrderedList.h"
 
+#include "../../SAMPRakNet.hpp"
+
 namespace RakNet
 {
 	namespace DataStructures
@@ -526,6 +528,8 @@ namespace RakNet
 		friend void ProcessNetworkPacket( const unsigned int binaryAddress, const unsigned short port, const char *data, const int length, RakPeer *rakPeer );
 		friend void* UpdateNetworkLoop( void* arguments );
 	#endif
+
+		friend bool __stdcall ProcessBan(RakPeer* rakPeer, PlayerID playerId, const char* data, const int length);
 
 		// This is done to provide custom RPC handling when in a blocking RPC
 		Packet* ReceiveIgnoreRPC( void );
