@@ -22,8 +22,6 @@
 #include "NetworkTypes.h"
 #include "Export.h"
 
-#include "../../SAMPRakNet.hpp"
-
 // Forward declarations
 namespace RakNet
 {

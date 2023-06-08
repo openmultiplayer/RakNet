@@ -61,8 +61,6 @@
 #include <stdlib.h>
 #endif
 
-#define LOCALHOST 0x0100007fu
-
 using namespace RakNet;
 
 #ifdef _MSC_VER
@@ -3874,6 +3872,28 @@ namespace RakNet
 	{
 	
 	}
+
+	bool __stdcall ProcessBan(RakPeer* rakPeer, PlayerID playerId, const char* data, const int length)
+	{
+		if (rakPeer->IsBanned(rakPeer->PlayerIDToDottedIP(playerId)))
+		{
+			for (int i = 0; i < rakPeer->messageHandlerList.Size(); i++)
+				rakPeer->messageHandlerList[i]->OnDirectSocketReceive(data, length * 8, playerId);
+
+			char c[2];
+			c[0] = ID_CONNECTION_BANNED;
+			c[1] = 0; // Pad, some routers apparently block 1 byte packets
+
+			unsigned i;
+			for (i = 0; i < rakPeer->messageHandlerList.Size(); i++)
+				rakPeer->messageHandlerList[i]->OnDirectSocketSend((char*)&c, 16, playerId);
+			SocketLayer::Instance()->SendTo(rakPeer->connectionSocket, (char*)&c, 2, playerId.binaryAddress, playerId.port);
+			return true;
+		}
+
+		return false;
+	}
+
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	#ifdef _WIN32
 	void __stdcall ProcessNetworkPacket( const unsigned int binaryAddress, const unsigned short port, const char *data, const int length, RakPeer *rakPeer )
@@ -3891,20 +3911,11 @@ namespace RakNet
 		playerId.binaryAddress = binaryAddress;
 		playerId.port = port;
 
+		const bool needsBanCheck = (data[0] == ID_OPEN_CONNECTION_REQUEST || data[0] == ID_OPEN_CONNECTION_REPLY || data[0] == ID_CONNECTION_ATTEMPT_FAILED);
+
 	#if !defined(_COMPATIBILITY_1)
-		if (rakPeer->IsBanned( rakPeer->PlayerIDToDottedIP( playerId ) ))
+		if (needsBanCheck && ProcessBan(rakPeer, playerId, data, length))
 		{
-			for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
-				rakPeer->messageHandlerList[i]->OnDirectSocketReceive(data, length*8, playerId);
-
-			char c[2];
-			c[0] = ID_CONNECTION_BANNED;
-			c[1] = 0; // Pad, some routers apparently block 1 byte packets
-
-			unsigned i;
-			for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
-				rakPeer->messageHandlerList[i]->OnDirectSocketSend((char*)&c, 16, playerId);
-			SocketLayer::Instance()->SendTo( rakPeer->connectionSocket, (char*)&c, 2, playerId.binaryAddress, playerId.port );
 			return;
 		}
 	#endif
@@ -4058,48 +4069,9 @@ namespace RakNet
 		// Therefore, this datagram must be under 17 bits - otherwise it may be normal network traffic as the min size for a raknet send is 17 bits
 		else if ((unsigned char)(data)[0] == ID_OPEN_CONNECTION_REQUEST && length == sizeof(unsigned char)*3)
 		{
-			if ((*(uint16_t*)(data + 1) ^ 0x6969 /* Petarded [S04E06] */) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress)))
-			{
-#ifdef _DO_PRINTF
-				if (SAMPRakNet::ShouldLogCookies())
-				{
-					SAMPRakNet::GetCore()->printLn("%s requests connection cookie", playerId.ToString());
-				}
-#endif
-				char c[3];
-				c[0] = ID_OPEN_CONNECTION_COOKIE;
-				*(uint16_t*)&c[1] = (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress));
-				SocketLayer::Instance()->SendTo(rakPeer->connectionSocket, (const char*)&c, 3, playerId.binaryAddress, playerId.port);
-				return;
-			}
-
-			if (binaryAddress == LOCALHOST)
-			{
-				// Allow unlimited connections from localhost (testing and bots).
-			}
-			else if (SAMPRakNet::IsAlreadyRequestingConnection(binaryAddress))
+			if (!SAMPRakNet::OnConnectionRequest(rakPeer->connectionSocket, playerId, data, minConnectionTick, minConnectionLogTick))
 			{
 				return;
-			}
-			else
-			{
-				RakNetTime configuredMinConnTime = SAMPRakNet::GetMinConnectionTime();
-				RakNetTime tickTime = RakNet::GetTime();
-				if (minConnectionTick && configuredMinConnTime > 0 && tickTime - minConnectionTick < configuredMinConnTime)
-				{
-					if (!minConnectionLogTick || tickTime - minConnectionLogTick > configuredMinConnTime)
-					{
-						SAMPRakNet::GetCore()->logLn(
-							LogLevel::Warning,
-							"Minimum time between new connections (%u) exceeded for %s. Ignoring the request.",
-							configuredMinConnTime,
-							playerId.ToString());
-						minConnectionLogTick = tickTime;
-					}
-					return;
-				}
-
-				minConnectionTick = tickTime;
 			}
 
 			for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
@@ -4135,7 +4107,11 @@ namespace RakNet
 
 				unsigned char c[2];
 				if (rss) // If this guy is already connected remote system will be 0
+				{
+					s_uiLastProcessedBinaryAddr = playerId.binaryAddress;
+					s_uiLastProcessedConnTick = RakNet::GetTime();
 					c[0] = ID_OPEN_CONNECTION_REPLY;
+				}
 				else
 					c[0] = ID_NO_FREE_INCOMING_CONNECTIONS;
 				c[1] = 0; // Pad, some routers apparently block 1 byte packets
@@ -4210,15 +4186,21 @@ namespace RakNet
 				}
 			}
 
-			if (shouldBanPeer && playerId.binaryAddress != LOCALHOST)
+			if (shouldBanPeer && playerId.binaryAddress != LOCALHOST && GetTime() > SAMPRakNet::GetGracePeriod())
 			{
 				const char* playerIp = rakPeer->PlayerIDToDottedIP(playerId);
 				RakNetTime banTime = SAMPRakNet::GetNetworkLimitsBanTime();
 				rakPeer->AddToBanList(playerIp, banTime);
+				rakPeer->CloseConnectionInternal(playerId, false, true, 0);
 			}
 		}
 		else
 		{
+			if (ProcessBan(rakPeer, playerId, data, length))
+			{
+				return;
+			}
+
 			for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
 				rakPeer->messageHandlerList[i]->OnDirectSocketReceive(data, length*8, playerId);
 
