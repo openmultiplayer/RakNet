@@ -109,6 +109,16 @@ bool RakServer::Send( RakNet::BitStream const *bitStream, PacketPriority priorit
 	return RakPeer::Send( bitStream, priority, reliability, orderingChannel, playerId, broadcast );
 }
 
+bool RakServer::SendToList( const char *data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )
+{
+	return RakPeer::SendToList( data, length, priority, reliability, orderingChannel, players, playerCount );
+}
+
+bool RakServer::SendToList( RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )
+{
+	return RakPeer::SendToList( bitStream, priority, reliability, orderingChannel, players, playerCount );
+}
+
 Packet* RakServer::Receive( void )
 {
 	Packet * packet = RakPeer::Receive();
@@ -275,6 +285,11 @@ bool RakServer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, 
 bool RakServer::RPC( RPCID  uniqueID, RakNet::BitStream const *parameters, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )
 {
 	return RakPeer::RPC( uniqueID, parameters, priority, reliability, orderingChannel, playerId, broadcast, shiftTimestamp, networkID, replyFromTarget );
+}
+
+bool RakServer::RPC(RPCID uniqueID, RakNet::BitStream const* parameters, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream* replyFromTarget)
+{
+	return RakPeer::RPC( uniqueID, parameters, priority, reliability, orderingChannel, players, playerCount, shiftTimestamp, networkID, replyFromTarget );
 }
 
 void RakServer::SetTrackFrequencyTable( bool b )
