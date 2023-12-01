@@ -93,6 +93,28 @@ namespace RakNet
 		/// \return Returns false on failure, true on success	
 		virtual bool Send( RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )=0;
 		
+		/// Sends a block of data to the specified list of systems that you are connected to.
+		/// This function only works while the connected
+		/// \param[in] data The block of data to send
+		/// \param[in] length The size in bytes of the data to send
+		/// \param[in] priority What priority level to send on.  See PacketPriority.h
+		/// \param[in] reliability How reliability to send this data.  See PacketPriority.h
+		/// \param[in] orderingChannel When using ordered or sequenced messages, what channel to order these on. Messages are only ordered relative to other messages on the same stream
+		/// \param[in] players Who to send this packet to
+		/// \param[in] playerCount amount of players to receive this packet, based on size of passed array from previous parameter
+		/// \return False if we are not connected to the specified recipient.  True otherwise
+		virtual bool SendToList( const char *data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )=0;
+
+		/// Sends a block of data to the specified list of systems that you are connected to.  Same as the above version, but takes a BitStream as input.
+		/// \param[in] bitStream The bitstream to send
+		/// \param[in] priority What priority level to send on.  See PacketPriority.h
+		/// \param[in] reliability How reliability to send this data.  See PacketPriority.h
+		/// \param[in] orderingChannel When using ordered or sequenced messages, what channel to order these on. Messages are only ordered relative to other messages on the same stream
+		/// \param[in] players Who to send this packet to
+		/// \param[in] playerCount amount of players to receive this packet, based on size of passed array from previous parameter
+		/// \return False if we are not connected to the specified recipient.  True otherwise
+		virtual bool SendToList( RakNet::BitStream const * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )=0;
+
 		/// Gets a packet from the incoming packet queue.
 		/// Use DeallocatePacket() to deallocate the packet after you are done with it.
 		/// User-thread functions, such as RPC calls and the plugin function PluginInterface::Update occur here.
@@ -249,6 +271,24 @@ namespace RakNet
 		/// \param[in] replyFromTarget If 0, this function is non-blocking.  Otherwise it will block while waiting for a reply from the target procedure, which is remtely written to RPCParameters::replyToSender and copied to replyFromTarget.  The block will return early on disconnect or if the sent packet is unreliable and more than 3X the ping has elapsed.
 		/// \return True on a successful packet send (this does not indicate the recipient performed the call), false on failure
 		virtual bool RPC( RPCID uniqueID, RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )=0;
+
+		/// \ingroup RAKNET_RPC
+		/// Calls a C function on the remote system that was already registered using RegisterAsRemoteProcedureCall.
+		/// If you want that function to return data you should call RPC from that system in the same wayReturns true on a successful packet
+		/// send (this does not indicate the recipient performed the call), false on failure
+		/// \param[in] uniqueID A NULL terminated string identifying the function to call.  Recommended you use the macro CLASS_MEMBER_ID for class member functions.
+		/// \param[in] data The data to send
+		/// \param[in] bitLength The number of bits of \a data
+		/// \param[in] priority What priority level to send on. See PacketPriority.h.
+		/// \param[in] reliability How reliability to send this data. See PacketPriority.h.
+		/// \param[in] orderingChannel When using ordered or sequenced message, what channel to order these on.
+		/// \param[in] players Array of players to send this message to.
+		/// \param[in] playerCount Size of players array passed in previous parameter.
+		/// \param[in] shiftTimestamp True to add a timestamp to your data, such that the first byte is ID_TIMESTAMP and the next sizeof(RakNetTime) is the timestamp.
+		/// \param[in] networkID For static functions, pass UNASSIGNED_NETWORK_ID.  For member functions, you must derive from NetworkIDGenerator and pass the value returned by NetworkIDGenerator::GetNetworkID for that object.
+		/// \param[in] replyFromTarget If 0, this function is non-blocking.  Otherwise it will block while waiting for a reply from the target procedure, which should be remotely written to RPCParameters::replyToSender and copied to replyFromTarget.  The block will return early on disconnect or if the sent packet is unreliable and more than 3X the ping has elapsed.
+		/// \return True on a successful packet send (this does not indicate the recipient performed the call), false on failure
+		virtual bool RPC( RPCID uniqueID, RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )=0;
 
 		/// Enables or disables frequency table tracking.  This is required to get a frequency table, which is used in GenerateCompressionLayer()
 		/// This value persists between connect calls and defaults to false (no frequency tracking)
