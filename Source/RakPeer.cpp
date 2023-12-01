@@ -902,7 +902,7 @@ bool RakPeer::Send( RakNet::BitStream const * bitStream, PacketPriority priority
 // Returns:
 // False if we are not connected to the specified recipient.  True otherwise
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-bool RakPeer::SendToList( const char *data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )
+bool RakPeer::SendToList( const char *data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* playerIds, int playerCount )
 {
 
 	RakAssert( data && length > 0 );
@@ -914,15 +914,15 @@ bool RakPeer::SendToList( const char *data, const int length, PacketPriority pri
 	if ( remoteSystemList == 0 || endThreads == true )
 		return false;
 
-	if ( players == nullptr || playerCount < 1 )
+	if ( playerIds == nullptr || playerCount < 1 )
 		return false;
 
-	SendBufferedToList(data, length*8, priority, reliability, orderingChannel, players, playerCount, RemoteSystemStruct::NO_ACTION);
+	SendBufferedToList(data, length*8, priority, reliability, orderingChannel, playerIds, playerCount);
 
 	return true;
 }
 
-bool RakPeer::SendToList( RakNet::BitStream const * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )
+bool RakPeer::SendToList( RakNet::BitStream const * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* playerIds, int playerCount )
 {
 
 	RakAssert( bitStream->GetNumberOfBytesUsed() > 0 );
@@ -934,12 +934,12 @@ bool RakPeer::SendToList( RakNet::BitStream const * bitStream, PacketPriority pr
 	if ( remoteSystemList == 0 || endThreads == true )
 		return false;
 
-	if ( players == nullptr || playerCount < 1 )
+	if ( playerIds == nullptr || playerCount < 1 )
 		return false;
 
 	// Sends need to be buffered and processed in the update thread because the playerID associated with the reliability layer can change,
 	// from that thread, resulting in a send to the wrong player!  While I could mutex the playerID, that is much slower than doing this
-	SendBufferedToList((const char*)bitStream->GetData(), bitStream->GetNumberOfBitsUsed(), priority, reliability, orderingChannel, players, playerCount, RemoteSystemStruct::NO_ACTION);
+	SendBufferedToList((const char*)bitStream->GetData(), bitStream->GetNumberOfBitsUsed(), priority, reliability, orderingChannel, playerIds, playerCount);
 	
 	return true;
 }
@@ -1479,7 +1479,7 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 	return true;	
 }
 
-bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )
+bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* playerIds, int playerCount, bool shiftTimestamp, NetworkID networkID )
 {
 	RakAssert( uniqueID );
 #if RPCID_STRING
@@ -1499,18 +1499,18 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 		return false; // Unique ID is too long
 	}
 #endif
-	if (replyFromTarget && blockOnRPCReply==true)
-	{
-		// TODO - this should be fixed eventually
-		// Prevent a bug where function A calls B (blocking) which calls C back on the sender, which calls D, and C is blocking.
-		// blockOnRPCReply is a shared variable so making it unset would unset both blocks, rather than the lowest on the callstack
-		// Fix by tracking which function the reply is for.
-		return false;
-	}
+//	if (replyFromTarget && blockOnRPCReply==true)
+//	{
+//		// TODO - this should be fixed eventually
+//		// Prevent a bug where function A calls B (blocking) which calls C back on the sender, which calls D, and C is blocking.
+//		// blockOnRPCReply is a shared variable so making it unset would unset both blocks, rather than the lowest on the callstack
+//		// Fix by tracking which function the reply is for.
+//		return false;
+//	}
 
 //	bool callerAllocationDataUsed;
-	PlayerID* sendPlayerList;
-	unsigned sendPlayerListSize = 0;
+//	PlayerID* sendPlayerList;
+//	unsigned sendPlayerListSize = 0;
 
 	// All this code modifies bcs->data and bcs->numberOfBitsToSend in order to transform an RPC request into an actual packet for SendImmediate
 #if RPCID_STRING
@@ -1518,37 +1518,13 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 #endif
 //	char *userData; // RPC ID (the name of it) and a pointer to the data sent by the user
 //	int extraBuffer; // How many data bytes were allocated to hold the RPC header
-	unsigned remoteSystemIndex; // Iterates into the list of remote systems
+//	unsigned remoteSystemIndex; // Iterates into the list of remote systems
 //	int dataBlockAllocationLength; // Total number of bytes to allocate for the packet
 //	char *writeTarget; // Used to hold either a block of allocated data or the externally allocated data
 
-	if (playerCount==0)
-	{
-		return false;
-	}
-	else
-	{
-		int maxIndex = maximumNumberOfPeers > playerCount ? playerCount : maximumNumberOfPeers;
-		sendPlayerList = new PlayerID[maxIndex];
-
-		for (int playerIndex = 0; playerIndex < maxIndex; playerIndex++)
-		{
-			remoteSystemIndex = GetIndexFromPlayerID(players[playerIndex], false);
-			if (remoteSystemIndex != (unsigned)-1 &&
-				remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP &&
-				remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY &&
-				remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
-			{
-				sendPlayerList[sendPlayerListSize++] = players[playerIndex];
-			}
-		}
-	}
-
+	// write the same RPC data into bitstream once, and use it for all players
 	RakNet::BitStream outgoingBitStream;
 	// remoteSystemList in network thread
-
-	// write the same RPC data into bitstream once, and use it for all players
-	outgoingBitStream.ResetWritePointer(); // Let us write at the start of the data block, rather than at the end
 
 	if (shiftTimestamp)
 	{
@@ -1582,10 +1558,10 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 	else
 		outgoingBitStream.WriteCompressed( ( unsigned int ) 0 );
 
-	SendToList(&outgoingBitStream, priority, reliability, orderingChannel, sendPlayerList, sendPlayerListSize);
+	return SendToList(&outgoingBitStream, priority, reliability, orderingChannel, playerIds, playerCount);
 
-	delete[] sendPlayerList;
-	return true;	
+	//delete[] sendPlayerList;
+	//return true;
 }
 
 #ifdef _MSC_VER
@@ -1599,12 +1575,12 @@ bool RakPeer::RPC( RPCID  uniqueID, RakNet::BitStream const *bitStream, PacketPr
 		return RPC(uniqueID, 0,0, priority, reliability, orderingChannel, playerId, broadcast, shiftTimestamp, networkID, replyFromTarget);
 }
 
-bool RakPeer::RPC(RPCID uniqueID, RakNet::BitStream const* bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream* replyFromTarget)
+bool RakPeer::RPC(RPCID uniqueID, RakNet::BitStream const* bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* playerIds, int playerCount, bool shiftTimestamp, NetworkID networkID)
 {
 	if (bitStream)
-		return RPC(uniqueID, (const char*) bitStream->GetData(), bitStream->GetNumberOfBitsUsed(), priority, reliability, orderingChannel, players, playerCount, shiftTimestamp, networkID, replyFromTarget);
+		return RPC(uniqueID, (const char*) bitStream->GetData(), bitStream->GetNumberOfBitsUsed(), priority, reliability, orderingChannel, playerIds, playerCount, shiftTimestamp, networkID);
 	else
-		return RPC(uniqueID, 0,0, priority, reliability, orderingChannel, players, playerCount, shiftTimestamp, networkID, replyFromTarget);
+		return RPC(uniqueID, 0, 0, priority, reliability, orderingChannel, playerIds, playerCount, shiftTimestamp, networkID);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3708,7 +3684,7 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 #endif
 			bcs=bufferedCommands.WriteLock();
 			bcs->command=BufferedCommandStruct::BCS_CLOSE_CONNECTION;
-			bcs->playerId=target;
+			bcs->singleData.playerId = target;
 			bcs->data=0;
 			bcs->orderingChannel=orderingChannel;
 			bufferedCommands.WriteUnlock();
@@ -3760,9 +3736,9 @@ void RakPeer::SendBuffered( const char *data, int numberOfBitsToSend, PacketPrio
 	bcs->priority=priority;
 	bcs->reliability=reliability;
 	bcs->orderingChannel=orderingChannel;
-	bcs->playerId=playerId;
-	bcs->broadcast=broadcast;
-	bcs->connectionMode=connectionMode;
+	bcs->singleData.playerId = playerId;
+	bcs->singleData.broadcast = broadcast;
+	bcs->singleData.connectionMode = connectionMode;
 	bcs->command=BufferedCommandStruct::BCS_SEND;
 	bufferedCommands.WriteUnlock();
 
@@ -3771,7 +3747,7 @@ void RakPeer::SendBuffered( const char *data, int numberOfBitsToSend, PacketPrio
 #endif
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void RakPeer::SendBufferedToList( const char *data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, RemoteSystemStruct::ConnectMode connectionMode )
+void RakPeer::SendBufferedToList( const char *data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount )
 {
 	RakAssert(orderingChannel >=0 && orderingChannel < 32);
 
@@ -3792,10 +3768,9 @@ void RakPeer::SendBufferedToList( const char *data, int numberOfBitsToSend, Pack
 		bcs->priority = priority;
 		bcs->reliability = reliability;
 		bcs->orderingChannel = orderingChannel;
-		bcs->playerId = players[index];
-		bcs->broadcast = false;
-		bcs->connectionMode = connectionMode;
-		bcs->command = BufferedCommandStruct::BCS_SEND;
+		bcs->listData.playerIds = players;
+		bcs->listData.playerCount = playerCount;
+		bcs->command = BufferedCommandStruct::BCS_SEND_LIST;
 		bufferedCommands.WriteUnlock();
 	}
 	
@@ -3804,7 +3779,7 @@ void RakPeer::SendBufferedToList( const char *data, int numberOfBitsToSend, Pack
 #endif
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-bool RakPeer::SendImmediate( char *data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool useCallerDataAllocation, RakNetTimeNS currentTime )
+bool RakPeer::SendImmediate(char* data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool useCallerDataAllocation, RakNetTimeNS currentTime, PlayerID* playerIds, int playerCount)
 {
 	unsigned *sendList;
 	unsigned sendListSize;
@@ -3818,19 +3793,44 @@ bool RakPeer::SendImmediate( char *data, int numberOfBitsToSend, PacketPriority 
 	// 03/06/06 - If broadcast is false, use the optimized version of GetIndexFromPlayerID
 	if (broadcast==false)
 	{
-#if !defined(_COMPATIBILITY_1)
-		sendList=(unsigned *)alloca(sizeof(unsigned));
-#else
-		sendList = new unsigned[1];
-#endif
-		remoteSystemIndex=GetIndexFromPlayerID( playerId, true );
-		if (remoteSystemIndex!=(unsigned)-1 &&
-			remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ASAP && 
-			remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY && 
-			remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
+		if (playerIds == nullptr)
 		{
-			sendList[0]=remoteSystemIndex;
-			sendListSize=1;
+#if !defined(_COMPATIBILITY_1)
+			sendList=(unsigned *)alloca(sizeof(unsigned));
+#else
+			sendList = new unsigned[1];
+#endif
+			remoteSystemIndex=GetIndexFromPlayerID( playerId, true );
+			if (remoteSystemIndex!=(unsigned)-1 &&
+				remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ASAP && 
+				remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY && 
+				remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
+			{
+				sendList[0]=remoteSystemIndex;
+				sendListSize=1;
+			}
+		}
+		else
+		{
+#if !defined(_COMPATIBILITY_1)
+			sendList = (unsigned*)alloca(sizeof(unsigned)*playerCount);
+#else
+			sendList = new unsigned[playerCount];
+#endif
+			sendListSize = playerCount;
+
+			for (int i = 0; i < playerCount; ++i)
+			{
+				remoteSystemIndex = GetIndexFromPlayerID(playerIds[i], true);
+				if (remoteSystemIndex!=(unsigned)-1 &&
+					remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ASAP && 
+					remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY && 
+					remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
+				{
+					sendList[i]=remoteSystemIndex;
+					sendListSize=1;
+				}
+			}
 		}
 	}
 	else
@@ -4555,26 +4555,37 @@ namespace RakNet
 				if (timeNS==0)
 					timeNS = RakNet::GetTimeNS();
 
-				callerDataAllocationUsed=SendImmediate((char*)bcs->data, bcs->numberOfBitsToSend, bcs->priority, bcs->reliability, bcs->orderingChannel, bcs->playerId, bcs->broadcast, true, timeNS);
+				callerDataAllocationUsed = SendImmediate((char*)bcs->data, bcs->numberOfBitsToSend, bcs->priority, bcs->reliability, bcs->orderingChannel, bcs->singleData.playerId, bcs->singleData.broadcast, true, timeNS);
 				if ( callerDataAllocationUsed==false )
 					delete[] bcs->data;
 
 				// Set the new connection state AFTER we call sendImmediate in case we are setting it to a disconnection state, which does not allow further sends
-				if (bcs->connectionMode!=RemoteSystemStruct::NO_ACTION && bcs->playerId!=UNASSIGNED_PLAYER_ID)
+				if (bcs->singleData.connectionMode != RemoteSystemStruct::NO_ACTION && bcs->singleData.playerId != UNASSIGNED_PLAYER_ID)
 				{
-					remoteSystem=GetRemoteSystemFromPlayerID( bcs->playerId, true, true );
+					remoteSystem = GetRemoteSystemFromPlayerID(bcs->singleData.playerId, true, true);
 				//	if (remoteSystem==0)
 				//		remoteSystem=AssignSystemAddressToRemoteSystemList(bcs->systemAddress, bcs->connectionMode);
 					if (remoteSystem)
-						remoteSystem->connectMode=bcs->connectionMode;
+						remoteSystem->connectMode=bcs->singleData.connectionMode;
 				}
+			}
+			else if (bcs->command == BufferedCommandStruct::BCS_SEND_LIST)
+			{
+				// GetTime is a very slow call so do it once and as late as possible
+				if (timeNS == 0)
+					timeNS = RakNet::GetTimeNS();
+
+				callerDataAllocationUsed = SendImmediate((char*)bcs->data, bcs->numberOfBitsToSend, bcs->priority, bcs->reliability, bcs->orderingChannel, UNASSIGNED_PLAYER_ID, false, true, timeNS, bcs->listData.playerIds, bcs->listData.playerCount);
+				if (callerDataAllocationUsed == false)
+					delete[] bcs->data;
+				delete[] bcs->listData.playerIds;
 			}
 			else
 			{
 
 				RakAssert(bcs->command==BufferedCommandStruct::BCS_CLOSE_CONNECTION);
 
-				CloseConnectionInternal(bcs->playerId, false, true, bcs->orderingChannel);
+				CloseConnectionInternal(bcs->singleData.playerId, false, true, bcs->orderingChannel);
 			}
 
 	#ifdef _DEBUG

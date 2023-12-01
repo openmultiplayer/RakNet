@@ -242,7 +242,7 @@ namespace RakNet
 		/// \param[in] networkID For static functions, pass UNASSIGNED_NETWORK_ID.  For member functions, you must derive from NetworkIDGenerator and pass the value returned by NetworkIDGenerator::GetNetworkID for that object.
 		/// \param[in] replyFromTarget If 0, this function is non-blocking.  Otherwise it will block while waiting for a reply from the target procedure, which should be remotely written to RPCParameters::replyToSender and copied to replyFromTarget.  The block will return early on disconnect or if the sent packet is unreliable and more than 3X the ping has elapsed.
 		/// \return True on a successful packet send (this does not indicate the recipient performed the call), false on failure
-		virtual bool RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )=0;
+		virtual bool RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* playerIds, int playerCount, bool shiftTimestamp, NetworkID networkID )=0;
 
 		/// \ingroup RAKNET_RPC
 		/// Calls a C function on the remote system that was already registered using RegisterAsRemoteProcedureCall.
@@ -260,7 +260,7 @@ namespace RakNet
 		/// \param[in] networkID For static functions, pass UNASSIGNED_NETWORK_ID.  For member functions, you must derive from NetworkIDGenerator and pass the value returned by NetworkIDGenerator::GetNetworkID for that object.
 		/// \param[in] replyFromTarget If 0, this function is non-blocking.  Otherwise it will block while waiting for a reply from the target procedure, which should be remotely written to RPCParameters::replyToSender and copied to replyFromTarget.  The block will return early on disconnect or if the sent packet is unreliable and more than 3X the ping has elapsed.
 		/// \return True on a successful packet send (this does not indicate the recipient performed the call), false on failure
-		virtual bool RPC( RPCID  uniqueID, RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )=0;
+		virtual bool RPC( RPCID  uniqueID, RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* playerIds, int playerCount, bool shiftTimestamp, NetworkID networkID )=0;
 
 		// -------------------------------------------------------------------------------------------- Connection Management Functions--------------------------------------------------------------------------------------------
 		/// Close the connection to another host (if we initiated the connection it will disconnect, if they did it will kick them out).

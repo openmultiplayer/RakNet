@@ -270,7 +270,7 @@ namespace RakNet
 		/// \param[in] networkID For static functions, pass UNASSIGNED_NETWORK_ID.  For member functions, you must derive from NetworkIDGenerator and pass the value returned by NetworkIDGenerator::GetNetworkID for that object.
 		/// \param[in] replyFromTarget If 0, this function is non-blocking.  Otherwise it will block while waiting for a reply from the target procedure, which should be remotely written to RPCParameters::replyToSender and copied to replyFromTarget.  The block will return early on disconnect or if the sent packet is unreliable and more than 3X the ping has elapsed.
 		/// \return True on a successful packet send (this does not indicate the recipient performed the call), false on failure
-		bool RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget ) override;
+		bool RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* playerIds, int playerCount, bool shiftTimestamp, NetworkID networkID ) override;
 
 		/// \ingroup RAKNET_RPC
 		/// Calls a C function on the remote system that was already registered using RegisterAsRemoteProcedureCall.
@@ -288,7 +288,7 @@ namespace RakNet
 		/// \param[in] networkID For static functions, pass UNASSIGNED_NETWORK_ID.  For member functions, you must derive from NetworkIDGenerator and pass the value returned by NetworkIDGenerator::GetNetworkID for that object.
 		/// \param[in] replyFromTarget If 0, this function is non-blocking.  Otherwise it will block while waiting for a reply from the target procedure, which should be remotely written to RPCParameters::replyToSender and copied to replyFromTarget.  The block will return early on disconnect or if the sent packet is unreliable and more than 3X the ping has elapsed.
 		/// \return True on a successful packet send (this does not indicate the recipient performed the call), false on failure
-		bool RPC( RPCID  uniqueID, RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget ) override;
+		bool RPC( RPCID  uniqueID, RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* playerIds, int playerCount, bool shiftTimestamp, NetworkID networkID ) override;
 
 		// -------------------------------------------------------------------------------------------- Connection Management Functions--------------------------------------------------------------------------------------------
 		/// Close the connection to another host (if we initiated the connection it will disconnect, if they did it will kick them out).
@@ -766,13 +766,24 @@ namespace RakNet
 			PacketPriority priority;
 			PacketReliability reliability;
 			char orderingChannel;
-			PlayerID playerId;
-			bool broadcast;
-			RemoteSystemStruct::ConnectMode connectionMode;
+			union
+			{
+				struct
+				{
+					PlayerID playerId;
+					bool broadcast;
+					RemoteSystemStruct::ConnectMode connectionMode;
+				} singleData;
+				struct
+				{
+					PlayerID* playerIds;
+					int playerCount;
+				} listData;
+			};
 			NetworkID networkID;
 			bool blockingCommand; // Only used for RPC
 			char *data;
-			enum {BCS_SEND, BCS_CLOSE_CONNECTION, /*BCS_RPC, BCS_RPC_SHIFT,*/ BCS_DO_NOTHING} command;
+			enum {BCS_SEND, BCS_CLOSE_CONNECTION, /*BCS_RPC, BCS_RPC_SHIFT,*/ BCS_DO_NOTHING,BCS_SEND_LIST} command;
 		};
 
 		// Single producer single consumer queue using a linked list
@@ -789,8 +800,8 @@ namespace RakNet
 		// This stores the user send calls to be handled by the update thread.  This way we don't have thread contention over playerIDs
 		void CloseConnectionInternal( const PlayerID target, bool sendDisconnectionNotification, bool performImmediate, unsigned char orderingChannel );
 		void SendBuffered( const char *data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, RemoteSystemStruct::ConnectMode connectionMode );
-		void SendBufferedToList( const char *data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount, RemoteSystemStruct::ConnectMode connectionMode );
-		bool SendImmediate( char *data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool useCallerDataAllocation, RakNetTimeNS currentTime );
+		void SendBufferedToList( const char *data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID* players, int playerCount );
+		bool SendImmediate(char* data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool useCallerDataAllocation, RakNetTimeNS currentTime, PlayerID* playerIds=nullptr, int playerCount=0);
 		//bool HandleBufferedRPC(BufferedCommandStruct *bcs, RakNetTime time);
 		void ClearBufferedCommands(void);
 		void ClearRequestedConnectionList(void);
