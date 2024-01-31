@@ -267,7 +267,10 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 				while ( theList->Size() )
 				{
 					internalPacket = orderingList[ i ]->Pop();
-					delete [] internalPacket->data;
+
+					if ( internalPacket->data )
+						delete [] internalPacket->data;
+
 					internalPacketPool.ReleasePointer( internalPacket );
 				}
 
@@ -287,7 +290,9 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 
 		if ( internalPacket )
 		{
-			delete [] internalPacket->data;
+			if ( internalPacket->data )
+				delete [] internalPacket->data;
+
 			internalPacketPool.ReleasePointer( internalPacket );
 		}
 	}
