@@ -600,6 +600,10 @@ namespace RakNet
 		char incomingPassword[256];
 		unsigned char incomingPasswordLength;
 
+		/// open.mp addition:
+		/// Let's create an array of player indexes using PlayerIDs
+		FlatHashMap<PlayerID, int> playerIndexes;
+
 		/// This is an array of pointers to RemoteSystemStruct
 		/// This allows us to preallocate the list when starting, so we don't have to allocate or delete at runtime.
 		/// Another benefit is that is lets us add and remove active players simply by setting playerId
