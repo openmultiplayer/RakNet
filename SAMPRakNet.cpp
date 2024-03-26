@@ -952,12 +952,9 @@ bool SAMPRakNet::OnConnectionRequest(
 
     if ((*(uint16_t*)(data + 1) ^ 0x6969 /* Petarded [S04E06] */) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress)))
 	{
-#ifdef _DO_PRINTF
 		if (SAMPRakNet::ShouldLogCookies())
-		{
-			core_->printLn("%s requests connection cookie", playerId.ToString());
-		}
-#endif
+			core_->printLn("[connection] %s requests connection cookie", playerId.ToString());
+
 		char c[3];
 		c[0] = RakNet::ID_OPEN_CONNECTION_COOKIE;
 		*(uint16_t*)&c[1] = (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress));
