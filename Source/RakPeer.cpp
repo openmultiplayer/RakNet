@@ -3511,6 +3511,17 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 	}
 	else
 	{
+		int playerIndex = GetIndexFromPlayerID(target);
+		if (playerIndex != -1)
+		{
+			Packet* packet = AllocPacket(sizeof(char));
+			packet->data[0] = ID_DISCONNECTION_NOTIFICATION;
+			packet->bitSize = (sizeof(char)) * 8;
+			packet->playerId = target;
+			packet->playerIndex = (PlayerIndex)playerIndex;
+			AddPacketToProducer(packet);
+		}
+
 		if (performImmediate)
 		{
 			// remoteSystemList in user thread
