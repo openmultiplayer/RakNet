@@ -1444,20 +1444,7 @@ bool RakPeer::RPC( RPCID  uniqueID, RakNet::BitStream const *bitStream, PacketPr
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::CloseConnection( const PlayerID target, bool sendDisconnectionNotification, unsigned char orderingChannel )
 {
-	if(!sendDisconnectionNotification)
-	{
-		RemoteSystemStruct* remoteSystem = GetRemoteSystemFromPlayerID(target, false, false);
-		if(remoteSystem) {
-			Packet* packet= AllocPacket(sizeof( char ) );
-			packet->data[0] = ID_DISCONNECTION_NOTIFICATION;
-			packet->bitSize = ( sizeof( char ) ) * 8;
-			packet->playerId = target;
-			packet->playerIndex = (PlayerIndex)GetIndexFromPlayerID(target);
-			AddPacketToProducer(packet);
-		}
-	}
-	
-	CloseConnectionInternal(target, sendDisconnectionNotification, true, orderingChannel);
+	CloseConnectionInternal(target, sendDisconnectionNotification, false, orderingChannel);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3524,6 +3511,17 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 	}
 	else
 	{
+		int playerIndex = GetIndexFromPlayerID(target);
+		if (playerIndex != -1)
+		{
+			Packet* packet = AllocPacket(sizeof(char));
+			packet->data[0] = ID_DISCONNECTION_NOTIFICATION;
+			packet->bitSize = (sizeof(char)) * 8;
+			packet->playerId = target;
+			packet->playerIndex = (PlayerIndex)playerIndex;
+			AddPacketToProducer(packet);
+		}
+
 		if (performImmediate)
 		{
 			// remoteSystemList in user thread
@@ -4237,7 +4235,7 @@ namespace RakNet
 				const char* playerIp = rakPeer->PlayerIDToDottedIP(playerId);
 				RakNetTime banTime = SAMPRakNet::GetNetworkLimitsBanTime();
 				rakPeer->AddToBanList(playerIp, banTime);
-				rakPeer->CloseConnection(playerId, false);
+				rakPeer->CloseConnectionInternal(playerId, false, true, 0);
 			}
 		}
 		else
@@ -4599,7 +4597,7 @@ namespace RakNet
 				// Taken from SA-MP 0.3.7 changes
 				if ((remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP || remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY) && timeMS - remoteSystem->lastReliableSend > 20000)
 				{
-					CloseConnection(playerId, false);
+					CloseConnectionInternal(playerId, false, true, 0);
 					continue;
 				}
 
@@ -4614,7 +4612,7 @@ namespace RakNet
 						if (diff > 30000)
 						{
 							SAMPRakNet::GetCore()->printLn("Kicking %s because they didn't logon to the game.", PlayerIDToDottedIP(playerId));
-							CloseConnection(playerId, false);
+							CloseConnection(playerId, true);
 							continue;
 						}
 					}
