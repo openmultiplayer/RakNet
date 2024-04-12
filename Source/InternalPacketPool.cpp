@@ -36,7 +36,13 @@ InternalPacketPool::~InternalPacketPool()
 void InternalPacketPool::ClearPool( void )
 {
 	while ( pool.Size() )
-		delete pool.Pop();
+	{
+		InternalPacket* internalPacket = pool.Pop();
+		if (internalPacket)
+		{
+			delete internalPacket;
+		}
+	}
 }
 /*
 InternalPacket* InternalPacketPool::GetPointer( void )
