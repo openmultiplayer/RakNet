@@ -104,6 +104,11 @@ bool RakServer::Send( const char *data, const int length, PacketPriority priorit
 	return RakPeer::Send( data, length, priority, reliability, orderingChannel, playerId, broadcast );
 }
 
+bool RakServer::Send(const char* data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, const Span<PlayerIndex>& players)
+{
+	return RakPeer::Send(data, length, priority, reliability, orderingChannel, players);
+}
+
 bool RakServer::Send( RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )
 {
 	return RakPeer::Send( bitStream, priority, reliability, orderingChannel, playerId, broadcast );
@@ -270,6 +275,11 @@ void RakServer::UnregisterAsRemoteProcedureCall( RPCID  uniqueID )
 bool RakServer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )
 {
 	return RakPeer::RPC( uniqueID, data, bitLength, priority, reliability, orderingChannel, playerId, broadcast, shiftTimestamp, networkID, replyFromTarget );
+}
+
+bool RakServer::RPC(RPCID uniqueID, const char* data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, const Span<PlayerIndex>& players)
+{
+	return RakPeer::RPC(uniqueID, data, bitLength, priority, reliability, orderingChannel, players);
 }
 
 bool RakServer::RPC( RPCID  uniqueID, RakNet::BitStream const *parameters, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )
