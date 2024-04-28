@@ -3699,7 +3699,7 @@ void RakPeer::SendBuffered(const char* data, int numberOfBitsToSend, PacketPrior
 	bcs->broadcastListSize = broadcastListSize;
 	bcs->broadcast = true; // This is fake, we are broadcasting to a specific list of peers, not all. Only setting it to true so we process it differently in RakPeer::SendImmediate.
 	bcs->connectionMode = RemoteSystemStruct::ConnectMode::NO_ACTION;
-	bcs->command = BufferedCommandStruct::BCS_SEND;
+	bcs->command = BufferedCommandStruct::BCS_SEND_TO_LIST;
 	bufferedCommands.WriteUnlock();
 
 #ifdef _RAKNET_THREADSAFE
@@ -4495,6 +4495,19 @@ namespace RakNet
 					if (remoteSystem)
 						remoteSystem->connectMode=bcs->connectionMode;
 				}
+			}
+			else if (bcs->command == BufferedCommandStruct::BCS_SEND_TO_LIST)
+			{
+				// GetTime is a very slow call so do it once and as late as possible
+				if (timeNS == 0)
+					timeNS = RakNet::GetTimeNS();
+
+				callerDataAllocationUsed = SendImmediate((char*)bcs->data, bcs->numberOfBitsToSend, bcs->priority, bcs->reliability, bcs->orderingChannel, UNASSIGNED_PLAYER_ID, true, true, timeNS, bcs->broadcastList, bcs->broadcastListSize);
+
+				if (callerDataAllocationUsed == false)
+					delete[] bcs->data;
+
+				delete[] bcs->broadcastList;
 			}
 			else
 			{

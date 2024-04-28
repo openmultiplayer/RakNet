@@ -747,7 +747,7 @@ namespace RakNet
 			NetworkID networkID;
 			bool blockingCommand; // Only used for RPC
 			char *data;
-			enum {BCS_SEND, BCS_CLOSE_CONNECTION, /*BCS_RPC, BCS_RPC_SHIFT,*/ BCS_DO_NOTHING} command;
+			enum {BCS_SEND, BCS_CLOSE_CONNECTION, BCS_SEND_TO_LIST, /*BCS_RPC, BCS_RPC_SHIFT,*/ BCS_DO_NOTHING} command;
 		};
 
 		// Single producer single consumer queue using a linked list
