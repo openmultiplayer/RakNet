@@ -89,9 +89,10 @@ namespace RakNet
 		/// \param[in] priority What priority level to send on.  See PacketPriority.h
 		/// \param[in] reliability How reliability to send this data.  See PacketPriority.h
 		/// \param[in] orderingChannel When using ordered or sequenced messages, what channel to order these on. Messages are only ordered relative to other messages on the same stream
-		/// \param[in] players List of players to send data to
+		/// \param[in] broadcastList List of players to send data to
+		/// \param[in] broadcastListSize size of list of players to send data to
 		/// \return False if we are not connected to the specified recipient.  True otherwise
-		virtual bool Send( const char* data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, const Span<PlayerIndex>& players ) = 0;
+		virtual bool Send( const char* data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerIndex* broadcastList = nullptr, int broadcastListSize = 0 ) = 0;
 		
 		/// /pre The server must be active.
 		/// Send the data stream of length \a length to whichever \a playerId you specify.
@@ -252,9 +253,10 @@ namespace RakNet
 		/// \param[in] priority What priority level to send on. See PacketPriority.h.
 		/// \param[in] reliability How reliability to send this data. See PacketPriority.h.
 		/// \param[in] orderingChannel When using ordered or sequenced message, what channel to order these on.
-		/// \param[in] players List of players to send data to
+		/// \param[in] broadcastList List of players to send data to
+		/// \param[in] broadcastListSize size of list of players to send data to
 		/// \return True on a successful packet send (this does not indicate the recipient performed the call), false on failure
-		virtual bool RPC( RPCID uniqueID, const char *data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, const Span<PlayerIndex>& players )=0;
+		virtual bool RPC( RPCID uniqueID, const char *data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerIndex* broadcastList = nullptr, int broadcastListSize = 0 )=0;
 
 		/// \ingroup RAKNET_RPC
 		/// Calls a C function on the remote system that was already registered using RegisterAsRemoteProcedureCall.

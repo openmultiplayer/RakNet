@@ -857,7 +857,7 @@ bool RakPeer::Send( const char *data, const int length, PacketPriority priority,
 	return true;
 }
 
-bool RakPeer::Send(const char* data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, const Span<PlayerIndex>& players)
+bool RakPeer::Send(const char* data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerIndex* broadcastList, int broadcastListSize)
 {
 	RakAssert(data && length > 0);
 
@@ -867,8 +867,10 @@ bool RakPeer::Send(const char* data, const int length, PacketPriority priority, 
 	if (remoteSystemList == 0 || endThreads == true)
 		return false;
 
+	if (broadcastList == nullptr || broadcastListSize == 0)
+		return false;
 
-	SendBuffered(data, length * 8, priority, reliability, orderingChannel, players, RemoteSystemStruct::NO_ACTION);
+	SendBuffered(data, length * 8, priority, reliability, orderingChannel, broadcastList, broadcastListSize);
 	return true;
 }
 
@@ -1436,7 +1438,7 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 	return true;	
 }
 
-bool RakPeer::RPC(RPCID uniqueID, const char* data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, const Span<PlayerIndex>& players)
+bool RakPeer::RPC(RPCID uniqueID, const char* data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerIndex* broadcastList, int broadcastListSize)
 {
 	RakAssert(uniqueID);
 	RakAssert(orderingChannel >= 0 && orderingChannel < 32);
@@ -1454,7 +1456,7 @@ bool RakPeer::RPC(RPCID uniqueID, const char* data, unsigned int bitLength, Pack
 	else
 		outgoingBitStream.WriteCompressed((unsigned int)0);
 
-	Send((const char*)outgoingBitStream.GetData(), outgoingBitStream.GetNumberOfBitsUsed(), priority, reliability, orderingChannel, players);
+	Send((const char*)outgoingBitStream.GetData(), outgoingBitStream.GetNumberOfBitsUsed(), priority, reliability, orderingChannel, broadcastList, broadcastListSize);
 	return true;
 }
 
@@ -2726,7 +2728,7 @@ void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteS
 	{
 		unsigned char c = ID_NO_FREE_INCOMING_CONNECTIONS;
 		// SocketLayer::Instance()->SendTo( rakPeer->connectionSocket, ( char* ) & c, sizeof( char ), systemAddress.binaryAddress, systemAddress.port );
-		SendImmediate(( char* ) & c, sizeof( char )*8, SYSTEM_PRIORITY, RELIABLE, 0, playerId, false, false, RakNet::GetTime(), Span<RakNet::PlayerIndex>());
+		SendImmediate(( char* ) & c, sizeof( char )*8, SYSTEM_PRIORITY, RELIABLE, 0, playerId, false, false, RakNet::GetTime());
 		remoteSystem->connectMode=RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
 	}
 	else
@@ -2764,7 +2766,7 @@ void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteS
 			// This one we only send once since we don't care if it arrives.
 			unsigned char c = ID_INVALID_PASSWORD;
 			// SocketLayer::Instance()->SendTo( rakPeer->connectionSocket, ( char* ) & c, sizeof( char ), systemAddress.binaryAddress, systemAddress.port );
-			SendImmediate(( char* ) & c, sizeof( char )*8, SYSTEM_PRIORITY, RELIABLE, 0, playerId, false, false, RakNet::GetTime(), Span<RakNet::PlayerIndex>());
+			SendImmediate(( char* ) & c, sizeof( char )*8, SYSTEM_PRIORITY, RELIABLE, 0, playerId, false, false, RakNet::GetTime());
 			remoteSystem->connectMode=RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY;
 		}
 	}
@@ -2781,7 +2783,7 @@ void RakPeer::AcceptConnectionRequest(RakPeer::RemoteSystemStruct* remoteSystem)
 	bitStream.Write((PlayerIndex)GetIndexFromPlayerID(remoteSystem->playerId, true));
 	bitStream.Write(SAMPRakNet::GetToken());
 
-	SendImmediate((char*)bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, remoteSystem->playerId, false, false, RakNet::GetTime(), Span<RakNet::PlayerIndex>());
+	SendImmediate((char*)bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, remoteSystem->playerId, false, false, RakNet::GetTime());
 }
 
 bool RakPeer::ParseConnectionAuthPacket(RakPeer::RemoteSystemStruct* remoteSystem, PlayerID playerId, unsigned char* data, int byteSize) {
@@ -2826,7 +2828,7 @@ void RakPeer::OnConnectionRequest( RakPeer::RemoteSystemStruct *remoteSystem, un
 		bitStream.Write<unsigned char>(authData.second.size() + 1);
 		bitStream.Write(authData.second.data(), authData.second.size() + 1);
 
-		SendImmediate((char*)bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, remoteSystem->playerId, false, false, RakNet::GetTime(), Span<RakNet::PlayerIndex>());
+		SendImmediate((char*)bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, remoteSystem->playerId, false, false, RakNet::GetTime());
 
 		// Don't set secure connections immediately because we need the ack from the remote system to know ID_CONNECTION_REQUEST_ACCEPTED
 		// As soon as a 16 byte packet arrives, we will turn on AES.  This works because all encrypted packets are multiples of 16 and the
@@ -2846,7 +2848,7 @@ void RakPeer::NotifyAndFlagForDisconnect(const PlayerID playerId, bool performIm
     RakNet::BitStream temp(sizeof(unsigned char));
     temp.Write((unsigned char)ID_DISCONNECTION_NOTIFICATION);
     if (performImmediate) {
-		SendImmediate((char*)temp.GetData(), temp.GetNumberOfBitsUsed(), LOW_PRIORITY, RELIABLE_ORDERED, orderingChannel, playerId, false, false, RakNet::GetTime(), Span<RakNet::PlayerIndex>());
+		SendImmediate((char*)temp.GetData(), temp.GetNumberOfBitsUsed(), LOW_PRIORITY, RELIABLE_ORDERED, orderingChannel, playerId, false, false, RakNet::GetTime());
         RemoteSystemStruct* rss = GetRemoteSystemFromPlayerID(playerId, true, true);
         if (rss) {
             rss->connectMode = RemoteSystemStruct::DISCONNECT_ASAP;
@@ -3371,7 +3373,7 @@ void RakPeer::SecuredConnectionResponse( const PlayerID playerId )
 	//SocketLayer::Instance()->SendTo( connectionSocket, ( char* ) connectionRequestResponse, 1 + sizeof( big::u32 ) + sizeof( RSA_BIT_SIZE ) + 20, playerId.binaryAddress, playerId.port );
 	// All secure connection requests are unreliable because the entire process needs to be restarted if any part fails.
 	// Connection requests are resent periodically
-	SendImmediate(( char* ) connectionRequestResponse, (1 + sizeof( big::u32 ) + sizeof( RSA_BIT_SIZE ) + 20) *8, SYSTEM_PRIORITY, UNRELIABLE, 0, playerId, false, false, RakNet::GetTime(), Span<RakNet::PlayerIndex>());
+	SendImmediate(( char* ) connectionRequestResponse, (1 + sizeof( big::u32 ) + sizeof( RSA_BIT_SIZE ) + 20) *8, SYSTEM_PRIORITY, UNRELIABLE, 0, playerId, false, false, RakNet::GetTime());
 #endif
 }
 
@@ -3476,7 +3478,7 @@ void RakPeer::SecuredConnectionConfirmation( RakPeer::RemoteSystemStruct * remot
 		//SocketLayer::Instance()->SendTo( connectionSocket, reply, 1 + 20 + sizeof( RSA_BIT_SIZE ), playerId.binaryAddress, playerId.port );
 		// All secure connection requests are unreliable because the entire process needs to be restarted if any part fails.
 		// Connection requests are resent periodically
-		SendImmediate((char*)reply, (1 + 20 + sizeof(RSA_BIT_SIZE)) * 8, SYSTEM_PRIORITY, UNRELIABLE, 0, remoteSystem->playerId, false, false, RakNet::GetTime(), Span<RakNet::PlayerIndex>());
+		SendImmediate((char*)reply, (1 + 20 + sizeof(RSA_BIT_SIZE)) * 8, SYSTEM_PRIORITY, UNRELIABLE, 0, remoteSystem->playerId, false, false, RakNet::GetTime());
 		//	}
 
 #endif
@@ -3496,9 +3498,9 @@ void RakPeer::SendStaticDataInternal( const PlayerID target, bool performImmedia
 	if (performImmediate)
 	{
 		if ( target == UNASSIGNED_PLAYER_ID )
-			SendImmediate((char*)reply.GetData(), reply.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, target, true, false, RakNet::GetTime(), Span<RakNet::PlayerIndex>());
+			SendImmediate((char*)reply.GetData(), reply.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, target, true, false, RakNet::GetTime());
 		else
-			SendImmediate((char*)reply.GetData(), reply.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, target, false, false, RakNet::GetTime(), Span<RakNet::PlayerIndex>());
+			SendImmediate((char*)reply.GetData(), reply.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, target, false, false, RakNet::GetTime());
 	}
 	else
 	{
@@ -3520,7 +3522,7 @@ void RakPeer::PingInternal( const PlayerID target, bool performImmediate )
 	RakNetTime currentTime = RakNet::GetTime();
 	bitStream.Write(currentTime);
 	if (performImmediate)
-		SendImmediate((char*)bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, UNRELIABLE, 0, target, false, false, currentTimeNS, Span<RakNet::PlayerIndex>());
+		SendImmediate((char*)bitStream.GetData(), bitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, UNRELIABLE, 0, target, false, false, currentTimeNS);
 	else
 		Send( &bitStream, SYSTEM_PRIORITY, UNRELIABLE, 0, target, false );
 }
@@ -3673,7 +3675,7 @@ void RakPeer::SendBuffered( const char *data, int numberOfBitsToSend, PacketPrio
 #endif
 }
 
-void RakPeer::SendBuffered(const char* data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, const Span<PlayerIndex>& players, RemoteSystemStruct::ConnectMode connectionMode)
+void RakPeer::SendBuffered(const char* data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerIndex* broadcastList, int broadcastListSize)
 {
 
 	RakAssert(orderingChannel >= 0 && orderingChannel < 32);
@@ -3683,19 +3685,20 @@ void RakPeer::SendBuffered(const char* data, int numberOfBitsToSend, PacketPrior
 #ifdef _RAKNET_THREADSAFE
 	rakPeerMutexes[bufferedCommands_Mutex].Lock();
 #endif
+	char* dataToBeWritten = new char[BITS_TO_BYTES(numberOfBitsToSend)];
+	RakAssert(dataToBeWritten);
+	memcpy(dataToBeWritten, data, BITS_TO_BYTES(numberOfBitsToSend));
+
 	bcs = bufferedCommands.WriteLock();
-	bcs->data = new char[BITS_TO_BYTES(numberOfBitsToSend)]; // Making a copy doesn't lose efficiency because I tell the reliability layer to use this allocation for its own copy
-
-	RakAssert(bcs->data);
-
-	memcpy(bcs->data, data, BITS_TO_BYTES(numberOfBitsToSend));
+	bcs->data = dataToBeWritten; // Making a copy doesn't lose efficiency because I tell the reliability layer to use this allocation for its own copy
 	bcs->numberOfBitsToSend = numberOfBitsToSend;
 	bcs->priority = priority;
 	bcs->reliability = reliability;
 	bcs->orderingChannel = orderingChannel;
-	bcs->broadcastList = players;
+	bcs->broadcastList = broadcastList;
+	bcs->broadcastListSize = broadcastListSize;
 	bcs->broadcast = true; // This is fake, we are broadcasting to a specific list of peers, not all. Only setting it to true so we process it differently in RakPeer::SendImmediate.
-	bcs->connectionMode = connectionMode;
+	bcs->connectionMode = RemoteSystemStruct::ConnectMode::NO_ACTION;
 	bcs->command = BufferedCommandStruct::BCS_SEND;
 	bufferedCommands.WriteUnlock();
 
@@ -3705,7 +3708,7 @@ void RakPeer::SendBuffered(const char* data, int numberOfBitsToSend, PacketPrior
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-bool RakPeer::SendImmediate( char *data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool useCallerDataAllocation, RakNetTimeNS currentTime, const Span<PlayerIndex>& players )
+bool RakPeer::SendImmediate(char* data, int numberOfBitsToSend, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool useCallerDataAllocation, RakNetTimeNS currentTime, PlayerIndex* broadcastList, int broadcastListSize)
 {
 	unsigned *sendList;
 	unsigned sendListSize;
@@ -3744,16 +3747,23 @@ bool RakPeer::SendImmediate( char *data, int numberOfBitsToSend, PacketPriority 
 		sendList = new unsigned[maximumNumberOfPeers];
 #endif
 		// Check if `players` has data. It means we are going to send data to a specified list of peers.
-		if (players.size())
+		if (broadcastListSize && broadcastList)
 		{
 			// They are supposed to be active already, but SendImmediate doesn't get called immediately when you use Send or RPC functions, rather in next update
 			// When processing collected packets. So we need to loop through them and check they active status.
-			for (int i = 0; i < players.size(); i++)
+			for (int i = 0; i < broadcastListSize; i++)
 			{
-				sendList[sendListSize++] = players.data()[i];
+				int remoteSystemIndex = broadcastList[i];
+				if (remoteSystemIndex != -1 && remoteSystemList[remoteSystemIndex].isActive && 
+					remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP && 
+					remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY && 
+					remoteSystemList[remoteSystemIndex].connectMode != RemoteSystemStruct::DISCONNECT_ON_NO_ACK
+					)
+				{
+					sendList[sendListSize] = remoteSystemIndex;
+					sendListSize++;
+				}
 			}
-
-			delete[] players.data();
 		}
 		// Normal broadcast. Send data to all peers
 		else
@@ -4090,7 +4100,7 @@ namespace RakNet
 						temp.Write( (unsigned char) ID_CONNECTION_REQUEST );
 						if ( rcs->outgoingPasswordLength > 0 )
 							temp.Write( ( char* ) rcs->outgoingPassword,  rcs->outgoingPasswordLength );
-						rakPeer->SendImmediate((char*)temp.GetData(), temp.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, playerId, false, false, time, Span<RakNet::PlayerIndex>());
+						rakPeer->SendImmediate((char*)temp.GetData(), temp.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, playerId, false, false, time);
 					}
 
 					if (rcs==rcsFirst)
@@ -4472,7 +4482,7 @@ namespace RakNet
 				if (timeNS==0)
 					timeNS = RakNet::GetTimeNS();
 
-				callerDataAllocationUsed=SendImmediate((char*)bcs->data, bcs->numberOfBitsToSend, bcs->priority, bcs->reliability, bcs->orderingChannel, bcs->playerId, bcs->broadcast, true, timeNS, bcs->broadcastList);
+				callerDataAllocationUsed=SendImmediate((char*)bcs->data, bcs->numberOfBitsToSend, bcs->priority, bcs->reliability, bcs->orderingChannel, bcs->playerId, bcs->broadcast, true, timeNS);
 				if ( callerDataAllocationUsed==false )
 					delete[] bcs->data;
 
@@ -4608,7 +4618,7 @@ namespace RakNet
 					if (rnss->messagesOnResendQueue==0)
 					{
 						unsigned char keepAlive=ID_DETECT_LOST_CONNECTIONS;
-						SendImmediate((char*)&keepAlive, 8, LOW_PRIORITY, RELIABLE, 0, remoteSystem->playerId, false, false, timeNS, Span<RakNet::PlayerIndex>());
+						SendImmediate((char*)&keepAlive, 8, LOW_PRIORITY, RELIABLE, 0, remoteSystem->playerId, false, false, timeNS);
 						remoteSystem->lastReliableSend=timeMS+remoteSystem->reliabilityLayer.GetTimeoutTime();
 					}
 				}
@@ -4893,7 +4903,7 @@ namespace RakNet
 							timeMS = RakNet::GetTime();
 							timeNS = RakNet::GetTimeNS();
 							outBitStream.Write(timeMS);
-							SendImmediate((char*)outBitStream.GetData(), outBitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, UNRELIABLE, 0, playerId, false, false, timeMS, Span<RakNet::PlayerIndex>());
+							SendImmediate((char*)outBitStream.GetData(), outBitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, UNRELIABLE, 0, playerId, false, false, timeMS);
 
 							delete [] data;
 						}
@@ -5093,7 +5103,7 @@ namespace RakNet
 								// As soon as a 16 byte packet arrives on the remote system, we will turn on AES.  This works because all encrypted packets are multiples of 16 and the
 								// packets I happen to be sending before this are less than 16 bytes.  Otherwise there is no way to know if a packet that arrived is
 								// encrypted or not so the other side won't know to turn on encryption or not.
-								SendImmediate((char*)outBitStream.GetData(), outBitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, playerId, false, false, RakNet::GetTime(), Span<RakNet::PlayerIndex>());
+								SendImmediate((char*)outBitStream.GetData(), outBitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, RELIABLE, 0, playerId, false, false, RakNet::GetTime());
 
 								if (alreadyConnected==false)
 								{

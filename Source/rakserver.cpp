@@ -104,9 +104,9 @@ bool RakServer::Send( const char *data, const int length, PacketPriority priorit
 	return RakPeer::Send( data, length, priority, reliability, orderingChannel, playerId, broadcast );
 }
 
-bool RakServer::Send(const char* data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, const Span<PlayerIndex>& players)
+bool RakServer::Send(const char* data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerIndex* broadcastList, int broadcastListSize)
 {
-	return RakPeer::Send(data, length, priority, reliability, orderingChannel, players);
+	return RakPeer::Send(data, length, priority, reliability, orderingChannel, broadcastList, broadcastListSize);
 }
 
 bool RakServer::Send( RakNet::BitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )
@@ -277,9 +277,9 @@ bool RakServer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, 
 	return RakPeer::RPC( uniqueID, data, bitLength, priority, reliability, orderingChannel, playerId, broadcast, shiftTimestamp, networkID, replyFromTarget );
 }
 
-bool RakServer::RPC(RPCID uniqueID, const char* data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, const Span<PlayerIndex>& players)
+bool RakServer::RPC(RPCID uniqueID, const char* data, unsigned int bitLength, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerIndex* broadcastList, int broadcastListSize)
 {
-	return RakPeer::RPC(uniqueID, data, bitLength, priority, reliability, orderingChannel, players);
+	return RakPeer::RPC(uniqueID, data, bitLength, priority, reliability, orderingChannel, broadcastList, broadcastListSize);
 }
 
 bool RakServer::RPC( RPCID  uniqueID, RakNet::BitStream const *parameters, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast, bool shiftTimestamp, NetworkID networkID, RakNet::BitStream *replyFromTarget )
