@@ -857,7 +857,36 @@ bool RakPeer::Send( const char *data, const int length, PacketPriority priority,
 	return true;
 }
 
-bool RakPeer::Send( RakNet::BitStream const * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )
+bool RakPeer::Send(NetworkBitStream const* bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast)
+{
+
+	RakAssert( bitStream->GetNumberOfBytesUsed() > 0 );
+
+
+	if ( bitStream->GetNumberOfBytesUsed() == 0 )
+		return false;
+
+	if ( remoteSystemList == 0 || endThreads == true )
+		return false;
+
+	if ( broadcast == false && playerId == UNASSIGNED_PLAYER_ID )
+		return false;
+
+	if (broadcast==false && router && GetIndexFromPlayerID(playerId)==-1)
+	{
+		return router->Send((const char*)bitStream->GetData(), bitStream->GetNumberOfBitsUsed(), priority, reliability, orderingChannel, playerId);
+	}
+	else
+	{
+		// Sends need to be buffered and processed in the update thread because the playerID associated with the reliability layer can change,
+		// from that thread, resulting in a send to the wrong player!  While I could mutex the playerID, that is much slower than doing this
+		SendBuffered((const char*)bitStream->GetData(), bitStream->GetNumberOfBitsUsed(), priority, reliability, orderingChannel, playerId, broadcast, RemoteSystemStruct::NO_ACTION);
+	}
+	
+	return true;
+}
+
+bool RakPeer::Send(RakNet::BitStream const* bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast)
 {
 
 	RakAssert( bitStream->GetNumberOfBytesUsed() > 0 );

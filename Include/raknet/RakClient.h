@@ -93,6 +93,15 @@ namespace RakNet
 		/// \param[in] reliability How reliability to send this data
 		/// \param[in] orderingChannel When using ordered or sequenced packets, what channel to order these on.- Packets are only ordered relative to other packets on the same stream
 		/// \return False if we are not connected to the specified recipient.  True otherwise
+		bool Send( NetworkBitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel ) override;
+
+		/// Sends a block of data to the specified system that you are connected to.
+		/// This function only works while the connected (Use the Connect function).
+		/// \param[in] bitStream The bitstream to send
+		/// \param[in] priority What priority level to send on.
+		/// \param[in] reliability How reliability to send this data
+		/// \param[in] orderingChannel When using ordered or sequenced packets, what channel to order these on.- Packets are only ordered relative to other packets on the same stream
+		/// \return False if we are not connected to the specified recipient.  True otherwise
 		bool Send( RakNet::BitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel ) override;
 		
 		/// Gets a packet from the incoming packet queue.
