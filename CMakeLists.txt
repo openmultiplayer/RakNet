@@ -6,33 +6,11 @@ if(WIN32)
 	)
 endif()
 
-set(RAKNET_SOURCES
-	Source/BitStream.cpp
-	Source/CheckSum.cpp
-	Source/CommandParserInterface.cpp
-	Source/ConsoleServer.cpp
-	Source/DataBlockEncryptor.cpp
-	Source/DS_HuffmanEncodingTree.cpp
-	Source/GetTime.cpp
-	Source/InternalPacketPool.cpp
-	Source/NetworkTypes.cpp
-	Source/RakClient.cpp
-	Source/RakNetCommandParser.cpp
-	Source/RakNetworkFactory.cpp
-	Source/RakPeer.cpp
-	Source/rakserver.cpp
-	Source/RakSleep.cpp
-	Source/Rand.cpp
-	Source/ReliabilityLayer.cpp
-	Source/rijndael.cpp
-	Source/RPCMap.cpp
-	Source/SHA1.cpp
-	Source/SimpleMutex.cpp
-	Source/SocketLayer.cpp
-	Source/StringCompressor.cpp
-	Source/StringTable.cpp
-	Source/PluginInterface.cpp
+file(GLOB_RECURSE RAKNET_SOURCES
+	"Include/raknet/*.h"
+	"Source/*.cpp"
 	SAMPRakNet.cpp
+	SAMPRakNet.hpp
 )
 
 add_library(raknet STATIC ${RAKNET_SOURCES})

@@ -91,6 +91,7 @@ ReliabilityLayer::ReliabilityLayer() : updateBitStream( DEFAULT_MTU_SIZE )   // 
 	timeoutTime=SAMPRakNet::GetTimeout();
 
 	InitializeVariables();
+	internalPacketPool.SetPageSize(sizeof(InternalPacket) * INTERNAL_PACKET_PAGE_SIZE);
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -240,8 +241,8 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 	{
 		for (j=0; j < splitPacketChannelList[i]->splitPacketList.Size(); j++)
 		{
-			delete [] splitPacketChannelList[i]->splitPacketList[j]->data;
-			internalPacketPool.ReleasePointer( splitPacketChannelList[i]->splitPacketList[j] );
+			FreeInternalPacketData(splitPacketChannelList[i]->splitPacketList[j]);
+			ReleaseToInternalPacketPool( splitPacketChannelList[i]->splitPacketList[j] );
 		}
 		delete splitPacketChannelList[i];
 	}
@@ -251,12 +252,8 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 	{
 		internalPacket = outputQueue.Pop();
 
-		if (internalPacket->data)
-		{
-			delete [] internalPacket->data;
-		}
-
-		internalPacketPool.ReleasePointer( internalPacket );
+		FreeInternalPacketData(internalPacket);
+		ReleaseToInternalPacketPool(internalPacket);
 	}
 
 	outputQueue.ClearAndForceAllocation( 32 );
@@ -273,12 +270,8 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 				{
 					internalPacket = orderingList[ i ]->Pop();
 
-					if (internalPacket->data)
-					{
-						delete [] internalPacket->data;
-					}
-
-					internalPacketPool.ReleasePointer( internalPacket );
+					FreeInternalPacketData(internalPacket);
+					ReleaseToInternalPacketPool(internalPacket);
 				}
 
 				delete theList;
@@ -297,12 +290,8 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 
 		if ( internalPacket )
 		{
-			if (internalPacket->data)
-			{
-				delete [] internalPacket->data;
-			}
-
-			internalPacketPool.ReleasePointer( internalPacket );
+			FreeInternalPacketData(internalPacket);
+			ReleaseToInternalPacketPool(internalPacket);
 		}
 	}
 	resendQueue.ClearAndForceAllocation( DEFAULT_HAS_RECEIVED_PACKET_QUEUE_SIZE );
@@ -313,14 +302,14 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 		j = 0;
 		for ( ; j < sendPacketSet[ i ].Size(); j++ )
 		{
-		delete [] ( sendPacketSet[ i ] ) [ j ]->data;
-		internalPacketPool.ReleasePointer( ( sendPacketSet[ i ] ) [ j ] );
+		FreeInternalPacketData(( sendPacketSet[ i ] ) [ j ]);
+		ReleaseToInternalPacketPool(( sendPacketSet[ i ] ) [ j ]);
 		}
 
 		sendPacketSet[ i ].ClearAndForceAllocation( 32 ); // Preallocate the send lists so we don't do a bunch of reallocations unnecessarily
 	}
 
-	internalPacketPool.ClearPool();
+	internalPacketPool.Clear();
 
 	//messageHistogram.Clear();
 
@@ -431,7 +420,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 				if (time >= histogramStartTime && ackedHistogramCounter!=(unsigned)-1 && ackedHistogramCounter==histogramReceiveMarker)
 					++histogramAckCount;
 
-//				internalPacketPool.ReleasePointer( internalPacket );
+//				ReleaseToInternalPacketPool( internalPacket );
 
 
 				if ( resendList.IsEmpty() )
@@ -531,12 +520,8 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 				statistics.duplicateMessagesReceived++;
 
 				// Duplicate packet
-				if (internalPacket->data)
-				{
-					delete [] internalPacket->data;
-				}
-
-				internalPacketPool.ReleasePointer( internalPacket );
+				FreeInternalPacketData(internalPacket);
+				ReleaseToInternalPacketPool(internalPacket);
 				goto CONTINUE_SOCKET_DATA_PARSE_LOOP;
 			}
 			else if (holeCount<hasReceivedPacketQueue.Size())
@@ -553,12 +538,8 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 					statistics.duplicateMessagesReceived++;
 
 					// Duplicate packet
-					if (internalPacket->data)
-					{
-						delete [] internalPacket->data;
-					}
-
-					internalPacketPool.ReleasePointer( internalPacket );
+					FreeInternalPacketData(internalPacket);
+					ReleaseToInternalPacketPool(internalPacket);
 					goto CONTINUE_SOCKET_DATA_PARSE_LOOP;
 				}
 			}
@@ -594,13 +575,9 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 			{
 				const char* ipPort = playerId.ToString(true);
 				SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "client exceeded 'messageslimit' %s (%d) Limit: %d/sec", ipPort, statistics.perSecondMessagesLimitCounter, messagesLimit);
-				
-				if (internalPacket->data)
-				{
-					delete [] internalPacket->data;
-				}
 
-				internalPacketPool.ReleasePointer( internalPacket );
+				FreeInternalPacketData(internalPacket);
+				ReleaseToInternalPacketPool(internalPacket);
 				incomingAcks.Clear();
 				shouldBanPeer = true;
 				return 1;
@@ -634,12 +611,8 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 					printf( "Got invalid packet\n" );
 #endif
 
-					if (internalPacket->data)
-					{
-						delete [] internalPacket->data;
-					}
-
-					internalPacketPool.ReleasePointer( internalPacket );
+					FreeInternalPacketData(internalPacket);
+					ReleaseToInternalPacketPool(internalPacket);
 					goto CONTINUE_SOCKET_DATA_PARSE_LOOP;
 				}
 
@@ -689,12 +662,8 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 					statistics.sequencedMessagesOutOfOrder++;
 
 					// Older sequenced packet. Discard it
-					if (internalPacket->data)
-					{
-						delete [] internalPacket->data;
-					}
-
-					internalPacketPool.ReleasePointer( internalPacket );
+					FreeInternalPacketData(internalPacket);
+					ReleaseToInternalPacketPool(internalPacket);
 				}
 
 				goto CONTINUE_SOCKET_DATA_PARSE_LOOP;
@@ -735,12 +704,8 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 					printf("Got invalid ordering channel %i from packet %i\n", internalPacket->orderingChannel, internalPacket->messageNumber);
 #endif
 					// Invalid packet
-					if (internalPacket->data)
-					{
-						delete [] internalPacket->data;
-					}
-
-					internalPacketPool.ReleasePointer( internalPacket );
+					FreeInternalPacketData(internalPacket);
+					ReleaseToInternalPacketPool(internalPacket);
 					goto CONTINUE_SOCKET_DATA_PARSE_LOOP;
 				}
 
@@ -812,12 +777,8 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 						const char* ipPort = playerId.ToString(true);
 						SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "Too many out-of-order messages from player %s (%d) Limit: %u (messageholelimit)", ipPort, statistics.orderedMessagesOutOfOrder, messageHoleLimit);
 
-						if (internalPacket->data)
-						{
-							delete [] internalPacket->data;
-						}
-
-						internalPacketPool.ReleasePointer( internalPacket );
+						FreeInternalPacketData(internalPacket);
+						ReleaseToInternalPacketPool(internalPacket);
 						incomingAcks.Clear();
 						shouldBanPeer = true;
 						return 1;
@@ -921,7 +882,7 @@ int ReliabilityLayer::Receive( unsigned char **data )
 		int bitLength;
 		*data = internalPacket->data;
 		bitLength = internalPacket->dataBitLength;
-		internalPacketPool.ReleasePointer( internalPacket );
+		ReleaseToInternalPacketPool( internalPacket );
 		return bitLength;
 	}
 
@@ -974,7 +935,7 @@ bool ReliabilityLayer::Send( char *data, int numberOfBitsToSend, PacketPriority 
 
 		return false;
 	}
-	InternalPacket * internalPacket = internalPacketPool.GetPointer();
+	InternalPacket * internalPacket = AllocateFromInternalPacketPool();
 	//InternalPacket * internalPacket = sendPacketSet[priority].WriteLock();
 #ifdef _DEBUG
 	// Remove accessing undefined memory warning
@@ -1352,12 +1313,8 @@ unsigned ReliabilityLayer::GenerateDatagram( RakNet::BitStream *output, int MTUS
 		if ( internalPacket->nextActionTime == 0 )
 		{
 			resendQueue.Pop();
-			if (internalPacket->data)
-			{
-				delete [] internalPacket->data;
-			}
-
-			internalPacketPool.ReleasePointer( internalPacket );
+			FreeInternalPacketData(internalPacket);
+			ReleaseToInternalPacketPool(internalPacket);
 			continue; // This was a hole
 		}
 
@@ -1437,12 +1394,8 @@ unsigned ReliabilityLayer::GenerateDatagram( RakNet::BitStream *output, int MTUS
 				time > internalPacket->creationTime+(RakNetTimeNS)unreliableTimeout)
 			{
 				// Unreliable packets are deleted
-				if (internalPacket->data)
-				{
-					delete [] internalPacket->data;
-				}
-
-				internalPacketPool.ReleasePointer( internalPacket );
+				FreeInternalPacketData(internalPacket);
+				ReleaseToInternalPacketPool(internalPacket);
 				continue;
 			}
 
@@ -1497,11 +1450,8 @@ unsigned ReliabilityLayer::GenerateDatagram( RakNet::BitStream *output, int MTUS
 			else
 			{
 				// Unreliable packets are deleted
-				if (internalPacket->data)
-				{
-					delete [] internalPacket->data;
-				}
-				internalPacketPool.ReleasePointer( internalPacket );
+				FreeInternalPacketData(internalPacket);
+				ReleaseToInternalPacketPool(internalPacket);
 			}
 		}
 	}
@@ -1605,8 +1555,8 @@ unsigned ReliabilityLayer::RemovePacketFromResendListAndDeleteOlderReliableSeque
 	deleted=resendList.Delete(messageNumber, internalPacket);
 	if (deleted)
 	{
-//		delete [] internalPacket->data;
-//		internalPacketPool.ReleasePointer( internalPacket );
+		//FreeInternalPacketData(internalPacket);
+		//ReleaseToInternalPacketPool(internalPacket);
 		internalPacket->nextActionTime=0; // Will be freed in the update function
 		return internalPacket->histogramMarker;
 
@@ -1624,8 +1574,8 @@ unsigned ReliabilityLayer::RemovePacketFromResendListAndDeleteOlderReliableSeque
 				if ( internalPacket && internalPacket->reliability == RELIABLE_SEQUENCED && internalPacket->orderingChannel == orderingChannel && IsOlderOrderedPacket( internalPacket->orderingIndex, orderingIndex ) )
 				{
 					// Delete the packet
-					delete [] internalPacket->data;
-					internalPacketPool.ReleasePointer( internalPacket );
+					FreeInternalPacketData(internalPacket);
+					ReleaseToInternalPacketPool(internalPacket);
 					resendList[ j ] = 0; // Generate a hole
 				}
 
@@ -1807,7 +1757,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 	if ( bitStream->GetNumberOfUnreadBits() < (int) sizeof( internalPacket->messageNumber ) * 8 )
 		return 0; // leftover bits
 
-	internalPacket = internalPacketPool.GetPointer();
+	internalPacket = AllocateFromInternalPacketPool();
 
 #ifdef _DEBUG
 	// Remove accessing undefined memory error
@@ -1828,7 +1778,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 
 	if ( bitStreamSucceeded == false )
 	{
-		internalPacketPool.ReleasePointer( internalPacket );
+		ReleaseToInternalPacketPool( internalPacket );
 		return 0;
 	}
 
@@ -1839,7 +1789,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 
 	if ( bitStreamSucceeded == false )
 	{
-		internalPacketPool.ReleasePointer( internalPacket );
+		ReleaseToInternalPacketPool( internalPacket );
 		return 0;
 	}
 
@@ -1864,7 +1814,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 
 	if ( bitStreamSucceeded == false )
 	{
-		internalPacketPool.ReleasePointer( internalPacket );
+		ReleaseToInternalPacketPool( internalPacket );
 		return 0;
 	}
 
@@ -1880,7 +1830,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 
 		if ( bitStreamSucceeded == false )
 		{
-			internalPacketPool.ReleasePointer( internalPacket );
+			ReleaseToInternalPacketPool( internalPacket );
 			return 0;
 		}
 
@@ -1893,7 +1843,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 
 		if ( bitStreamSucceeded == false )
 		{
-			internalPacketPool.ReleasePointer( internalPacket );
+			ReleaseToInternalPacketPool( internalPacket );
 			return 0;
 		}
 	}
@@ -1910,7 +1860,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 
 	if ( bitStreamSucceeded == false )
 	{
-		internalPacketPool.ReleasePointer( internalPacket );
+		ReleaseToInternalPacketPool( internalPacket );
 		return 0;
 	}
 
@@ -1924,7 +1874,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 
 		if ( bitStreamSucceeded == false )
 		{
-			internalPacketPool.ReleasePointer( internalPacket );
+			ReleaseToInternalPacketPool( internalPacket );
 			return 0;
 		}
 
@@ -1936,7 +1886,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 
 		if ( bitStreamSucceeded == false )
 		{
-			internalPacketPool.ReleasePointer( internalPacket );
+			ReleaseToInternalPacketPool( internalPacket );
 			return 0;
 		}
 
@@ -1948,7 +1898,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 
 		if ( bitStreamSucceeded == false )
 		{
-			internalPacketPool.ReleasePointer( internalPacket );
+			ReleaseToInternalPacketPool( internalPacket );
 			return 0;
 		}
 	}
@@ -1974,7 +1924,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 
 	if ( bitStreamSucceeded == false )
 	{
-		internalPacketPool.ReleasePointer( internalPacket );
+		ReleaseToInternalPacketPool( internalPacket );
 		return 0;
 	}
 
@@ -1986,8 +1936,8 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 	if ( ! ( internalPacket->dataBitLength > 0 && BITS_TO_BYTES( internalPacket->dataBitLength ) < MAXIMUM_MTU_SIZE ) )
 	{
 		// 10/08/05 - internalPacket->data wasn't allocated yet
-		//	delete [] internalPacket->data;
-		internalPacketPool.ReleasePointer( internalPacket );
+		//	FreeInternalPacketData(internalPacket);
+		ReleaseToInternalPacketPool(internalPacket);
 		return 0;
 	}
 
@@ -2010,11 +1960,8 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 
 	if ( bitStreamSucceeded == false )
 	{
-		if (internalPacket->data)
-		{
-			delete [] internalPacket->data;
-		}
-		internalPacketPool.ReleasePointer( internalPacket );
+		FreeInternalPacketData(internalPacket);
+		ReleaseToInternalPacketPool(internalPacket);
 		return 0;
 	}
 
@@ -2070,11 +2017,8 @@ void ReliabilityLayer::DeleteSequencedPacketsInList( unsigned char orderingChann
 		{
 			InternalPacket * internalPacket = theList[ i ];
 			theList.RemoveAtIndex( i );
-			if (internalPacket->data)
-			{
-				delete [] internalPacket->data;
-			}
-			internalPacketPool.ReleasePointer( internalPacket );
+			FreeInternalPacketData(internalPacket);
+			ReleaseToInternalPacketPool(internalPacket);
 		}
 
 		else
@@ -2098,11 +2042,8 @@ void ReliabilityLayer::DeleteSequencedPacketsInList( unsigned char orderingChann
 		{
 			internalPacket = theList[ i ];
 			theList.Del( i );
-			if (internalPacket->data)
-			{
-				delete [] internalPacket->data;
-			}
-			internalPacketPool.ReleasePointer( internalPacket );
+			FreeInternalPacketData(internalPacket);
+			ReleaseToInternalPacketPool(internalPacket);
 			listSize--;
 		}
 
@@ -2187,7 +2128,7 @@ void ReliabilityLayer::SplitPacket( InternalPacket *internalPacket, int MTUSize 
 
 	for ( i = 0; i < ( int ) internalPacket->splitPacketCount; i++ )
 	{
-		internalPacketArray[ i ] = internalPacketPool.GetPointer();
+		internalPacketArray[ i ] = AllocateFromInternalPacketPool();
 		//internalPacketArray[ i ] = (InternalPacket*) alloca( sizeof( InternalPacket ) );
 //		internalPacketArray[ i ] = sendPacketSet[internalPacket->priority].WriteLock();
 		memcpy( internalPacketArray[ i ], internalPacket, sizeof( InternalPacket ) );
@@ -2255,11 +2196,8 @@ void ReliabilityLayer::SplitPacket( InternalPacket *internalPacket, int MTUSize 
 	}
 
 	// Delete the original
-	if (internalPacket->data)
-	{
-		delete [] internalPacket->data;
-	}
-	internalPacketPool.ReleasePointer( internalPacket );
+	FreeInternalPacketData(internalPacket);
+	ReleaseToInternalPacketPool(internalPacket);
 
 	if (usedAlloca==false)
 		delete [] internalPacketArray;
@@ -2297,7 +2235,7 @@ void ReliabilityLayer::InsertIntoSplitPacketList( InternalPacket * internalPacke
 		// Write splitPacketCount (SplitPacketIndexType)
 		// Write byteLength (4)
 		// Write data, splitPacketChannelList[index]->splitPacketList[0]->data
-		InternalPacket *progressIndicator = internalPacketPool.GetPointer();
+		InternalPacket *progressIndicator = AllocateFromInternalPacketPool();
 		unsigned int length = sizeof(MessageID) + sizeof(unsigned int)*2 + sizeof(unsigned int) + BITS_TO_BYTES(splitPacketChannelList[index]->splitPacketList[0]->dataBitLength);
 		progressIndicator->data = new unsigned char [length];
 		progressIndicator->dataBitLength=BYTES_TO_BITS(length);
@@ -2350,8 +2288,8 @@ InternalPacket * ReliabilityLayer::BuildPacketFromSplitPacketList( SplitPacketId
 
 		for (j=0; j < splitPacketChannelList[i]->splitPacketList.Size(); j++)
 		{
-			delete [] splitPacketChannelList[i]->splitPacketList[j]->data;
-			internalPacketPool.ReleasePointer(splitPacketChannelList[i]->splitPacketList[j]);
+			FreeInternalPacketData(splitPacketChannelList[i]->splitPacketList[j]);
+			ReleaseToInternalPacketPool(splitPacketChannelList[i]->splitPacketList[j]);
 		}
 		delete splitPacketChannelList[i];
 		splitPacketChannelList.RemoveAtIndex(i);
@@ -2374,8 +2312,8 @@ void ReliabilityLayer::DeleteOldUnreliableSplitPackets( RakNetTimeNS time )
 		{
 			for (j=0; j < splitPacketChannelList[i]->splitPacketList.Size(); j++)
 			{
-				delete [] splitPacketChannelList[i]->splitPacketList[j]->data;
-				internalPacketPool.ReleasePointer(splitPacketChannelList[i]->splitPacketList[j]);
+				FreeInternalPacketData(splitPacketChannelList[i]->splitPacketList[j]);
+				ReleaseToInternalPacketPool(splitPacketChannelList[i]->splitPacketList[j]);
 			}
 			delete splitPacketChannelList[i];
 			splitPacketChannelList.RemoveAtIndex(i);
@@ -2391,7 +2329,7 @@ void ReliabilityLayer::DeleteOldUnreliableSplitPackets( RakNetTimeNS time )
 //-------------------------------------------------------------------------------------------------------
 InternalPacket * ReliabilityLayer::CreateInternalPacketCopy( InternalPacket *original, int dataByteOffset, int dataByteLength, RakNetTimeNS time )
 {
-	InternalPacket * copy = internalPacketPool.GetPointer();
+	InternalPacket * copy = AllocateFromInternalPacketPool();
 #ifdef _DEBUG
 	// Remove accessing undefined memory error
 	memset( copy, 255, sizeof( InternalPacket ) );
@@ -2482,7 +2420,7 @@ void ReliabilityLayer::InsertPacketIntoResendList( InternalPacket *internalPacke
 
 	if (makeCopyOfInternalPacket)
 	{
-		InternalPacket *pool=internalPacketPool.GetPointer();
+		InternalPacket *pool=AllocateFromInternalPacketPool();
 		//printf("Adding %i\n", internalPacket->data);
 		memcpy(pool, internalPacket, sizeof(InternalPacket));
 		resendQueue.Push( pool );
@@ -2599,6 +2537,35 @@ void ReliabilityLayer::UpdateThreadedMemory(void)
 		freeThreadedMemoryOnNextUpdate = false;
 		FreeThreadedMemory();
 	}
+}
+//-------------------------------------------------------------------------------------------------------
+InternalPacket* ReliabilityLayer::AllocateFromInternalPacketPool(void)
+{
+	InternalPacket* ip = internalPacketPool.Allocate();
+
+	ip->nextActionTime = 0;
+	ip->splitPacketCount = 0;
+	ip->splitPacketIndex = 0;
+	ip->splitPacketId = 0;
+	ip->data = 0;
+	ip->dataBitLength = 0;
+	ip->creationTime = 0;
+	ip->nextActionTime = 0;
+	return ip;
+}
+//-------------------------------------------------------------------------------------------------------
+void ReliabilityLayer::ReleaseToInternalPacketPool(InternalPacket* ip)
+{
+	internalPacketPool.Release(ip);
+}
+//-------------------------------------------------------------------------------------------------------
+void ReliabilityLayer::FreeInternalPacketData(InternalPacket *internalPacket)
+{
+	if (internalPacket->data==0)
+		return;
+
+	free(internalPacket->data);
+	internalPacket->data=0;
 }
 
 #ifdef _MSC_VER

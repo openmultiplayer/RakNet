@@ -26,7 +26,7 @@
 #include "DS_Queue.h"
 #include "BitStream.h"
 #include "InternalPacket.h"
-#include "InternalPacketPool.h"
+#include "DS_MemoryPoolModern.h"
 #include "DataBlockEncryptor.h"
 #include "RakNetStatistics.h"
 #include "SHA1.h"
@@ -35,6 +35,10 @@
 #include "DS_BPlusTree.h"
 
 #include "BitStream.h"
+
+#ifndef INTERNAL_PACKET_PAGE_SIZE
+#define INTERNAL_PACKET_PAGE_SIZE 8
+#endif
 
 namespace RakNet
 {
@@ -274,6 +278,10 @@ namespace RakNet
 
 		void CalculateHistogramAckSize(void);
 
+		InternalPacket* AllocateFromInternalPacketPool(void);
+		void ReleaseToInternalPacketPool(InternalPacket* ip);
+		void FreeInternalPacketData(InternalPacket* internalPacket);
+
 		DataStructures::List<DataStructures::LinkedList<InternalPacket*>*> orderingList;
 		DataStructures::Queue<InternalPacket*> outputQueue;
 		DataStructures::RangeList<MessageNumberType> acknowlegements;
@@ -356,7 +364,7 @@ namespace RakNet
 	#endif
 
 		// This has to be a member because it's not threadsafe when I removed the mutexes
-		InternalPacketPool internalPacketPool;
+		MemoryPoolModern<InternalPacket> internalPacketPool;
 	};
 }
 
