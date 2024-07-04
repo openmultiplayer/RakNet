@@ -807,24 +807,22 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 				//	RakAssert(waitingForOrderedPacketReadIndex[ internalPacket->orderingChannel ] < internalPacket->orderingIndex);
 					statistics.orderedMessagesOutOfOrder++;
 
-					if (statistics.orderedMessagesOutOfOrder > messageHoleLimit)
-					{
-						const char* ipPort = playerId.ToString(true);
-						SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "Too many out-of-order messages from player %s (%d) Limit: %u (messageholelimit)", ipPort, statistics.orderedMessagesOutOfOrder, messageHoleLimit);
-
-						if (internalPacket->data)
-						{
-							delete [] internalPacket->data;
-						}
-
-						internalPacketPool.ReleasePointer( internalPacket );
-						incomingAcks.Clear();
-						shouldBanPeer = true;
-						return 1;
-					}
-
 					// This is a newer ordered packet than we are waiting for. Store it for future use
-					AddToOrderingList( internalPacket );
+					AddToOrderingList(internalPacket);
+
+					DataStructures::LinkedList<InternalPacket*>* list = GetOrderingListAtOrderingStream(internalPacket->orderingChannel);
+					if (list)
+					{
+						unsigned int size = list->Size();
+						if (messageHoleLimit < size)
+						{
+							const char* ipPort = playerId.ToString(true);
+							SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "Too many out-of-order messages from player %s (%d) Limit: %u (messageholelimit)", ipPort, ordersize, messageHoleLimit);
+							incomingAcks.Clear();
+							shouldBanPeer = true;
+							return true;
+						}
+					}
 				}
 
 				goto CONTINUE_SOCKET_DATA_PARSE_LOOP;
