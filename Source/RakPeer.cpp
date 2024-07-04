@@ -5029,20 +5029,16 @@ namespace RakNet
 								delete [] data;
 							}
 						}
-						else
+						else if (data[0]>=(unsigned char)ID_RPC)
 						{
-							if (data[0]>=(unsigned char)ID_RPC)
-							{
-								packet=AllocPacket(byteSize, data);
-								packet->bitSize = bitSize;
-								packet->playerId = playerId;
-								packet->playerIndex = ( PlayerIndex ) remoteSystemIndex;
-								AddPacketToProducer(packet);					
-							}
-							//else
-								// Some internal type got returned to the user?
-								//RakAssert(0);
+							packet=AllocPacket(byteSize, data);
+							packet->bitSize = bitSize;
+							packet->playerId = playerId;
+							packet->playerIndex = ( PlayerIndex ) remoteSystemIndex;
+							AddPacketToProducer(packet);					
 						}
+						else
+							delete[] data;
 					}
 
 					// Does the reliability layer have any more packets waiting for us?
