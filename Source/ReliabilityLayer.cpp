@@ -594,13 +594,6 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 			{
 				const char* ipPort = playerId.ToString(true);
 				SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "client exceeded 'messageslimit' %s (%d) Limit: %d/sec", ipPort, statistics.perSecondMessagesLimitCounter, messagesLimit);
-				
-				if (internalPacket->data)
-				{
-					delete [] internalPacket->data;
-				}
-
-				internalPacketPool.ReleasePointer( internalPacket );
 				incomingAcks.Clear();
 				shouldBanPeer = true;
 				return 1;
@@ -811,13 +804,6 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 					{
 						const char* ipPort = playerId.ToString(true);
 						SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "Too many out-of-order messages from player %s (%d) Limit: %u (messageholelimit)", ipPort, statistics.orderedMessagesOutOfOrder, messageHoleLimit);
-
-						if (internalPacket->data)
-						{
-							delete [] internalPacket->data;
-						}
-
-						internalPacketPool.ReleasePointer( internalPacket );
 						incomingAcks.Clear();
 						shouldBanPeer = true;
 						return 1;
@@ -1434,7 +1420,7 @@ unsigned ReliabilityLayer::GenerateDatagram( RakNet::BitStream *output, int MTUS
 
 			if (unreliableTimeout!=0 &&
 				(internalPacket->reliability==UNRELIABLE || internalPacket->reliability==UNRELIABLE_SEQUENCED) &&
-				time > internalPacket->creationTime+(RakNetTimeNS)unreliableTimeout)
+				time > internalPacket->creationTime+(RakNetTimeNS)unreliableTimeout )
 			{
 				// Unreliable packets are deleted
 				if (internalPacket->data)
@@ -1442,6 +1428,12 @@ unsigned ReliabilityLayer::GenerateDatagram( RakNet::BitStream *output, int MTUS
 					delete [] internalPacket->data;
 				}
 
+				internalPacketPool.ReleasePointer( internalPacket );
+				continue;
+			}
+
+			if (internalPacket->data == 0)
+			{
 				internalPacketPool.ReleasePointer( internalPacket );
 				continue;
 			}
@@ -1951,8 +1943,10 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 			internalPacketPool.ReleasePointer( internalPacket );
 			return 0;
 		}
-	}
 
+		SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "dropping a split packet from client");
+		internalPacketPool.ReleasePointer(internalPacket);
+	}
 	else
 		internalPacket->splitPacketIndex = internalPacket->splitPacketCount = 0;
 

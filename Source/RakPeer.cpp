@@ -3511,17 +3511,6 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 	}
 	else
 	{
-		int playerIndex = GetIndexFromPlayerID(target);
-		if (playerIndex != -1)
-		{
-			Packet* packet = AllocPacket(sizeof(char));
-			packet->data[0] = ID_DISCONNECTION_NOTIFICATION;
-			packet->bitSize = (sizeof(char)) * 8;
-			packet->playerId = target;
-			packet->playerIndex = (PlayerIndex)playerIndex;
-			AddPacketToProducer(packet);
-		}
-
 		if (performImmediate)
 		{
 			// remoteSystemList in user thread
@@ -4548,9 +4537,10 @@ namespace RakNet
 				//	printf("timeMS=%i remoteSystem->connectionTime=%i\n", timeMS, remoteSystem->connectionTime );
 
 					// Failed.  Inform the user?
-					if (remoteSystem->connectMode==RemoteSystemStruct::CONNECTED || remoteSystem->connectMode==RemoteSystemStruct::REQUESTED_CONNECTION
+				/* if (remoteSystem->connectMode == RemoteSystemStruct::CONNECTED || remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION
 						|| remoteSystem->connectMode==RemoteSystemStruct::DISCONNECT_ASAP || remoteSystem->connectMode==RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
 					{
+					*/
 						// Inform the user of the connection failure.
 					//	unsigned staticDataBytes;
 
@@ -4572,11 +4562,12 @@ namespace RakNet
 						packet->playerIndex = ( PlayerIndex ) remoteSystemIndex;
 
 						AddPacketToProducer(packet);
-					}
+					// }
 					// else connection shutting down, don't bother telling the user
 
 	#ifdef _DO_PRINTF
-					SAMPRakNet::GetCore()->printLn("Connection dropped for player %s", playerId.ToString());
+					const char* ipPort = playerId.ToString(true);
+					SAMPRakNet::GetCore()->printLn("Connection dropped for player %s", ipPort);
 	#endif
 					CloseConnectionInternal( playerId, false, true, 0 );
 					continue;
@@ -4597,6 +4588,14 @@ namespace RakNet
 				// Taken from SA-MP 0.3.7 changes
 				if ((remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP || remoteSystem->connectMode == RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY) && timeMS - remoteSystem->lastReliableSend > 20000)
 				{
+					packet = AllocPacket(sizeof(char));
+					packet->data[0] = ID_CONNECTION_LOST; // DeadConnection
+					packet->bitSize = (sizeof(char)) * 8;
+					packet->playerId = playerId;
+					packet->playerIndex = (PlayerIndex)remoteSystemIndex;
+
+					AddPacketToProducer(packet);
+
 					CloseConnectionInternal(playerId, false, true, 0);
 					continue;
 				}
@@ -4612,7 +4611,7 @@ namespace RakNet
 						if (diff > 30000)
 						{
 							SAMPRakNet::GetCore()->printLn("Kicking %s because they didn't logon to the game.", PlayerIDToDottedIP(playerId));
-							CloseConnection(playerId, true);
+							NotifyAndFlagForDisconnect(playerId, true, 0);
 							continue;
 						}
 					}
@@ -4662,7 +4661,8 @@ namespace RakNet
 
 							if ( byteSize > BITS_TO_BYTES( bitSize ) )   // Probably the case - otherwise why decompress?
 							{
-								delete [] data;
+								if (data)
+									delete [] data;
 								data = new unsigned char [ byteSize ];
 							}
 							memcpy( data, dataBitStream.GetData(), byteSize );
@@ -4691,6 +4691,16 @@ namespace RakNet
 							}
 							else
 							{
+								if (remoteSystemIndex != -1)
+								{
+									Packet* packet = AllocPacket(sizeof(char));
+									packet->data[0] = ID_DISCONNECTION_NOTIFICATION;
+									packet->bitSize = (sizeof(char)) * 8;
+									packet->playerId = playerId;
+									packet->playerIndex = (PlayerIndex)remoteSystemIndex;
+									AddPacketToProducer(packet);
+								}
+								
 								CloseConnectionInternal(playerId, false, true, 0);
 #ifdef _DO_PRINTF
 								SAMPRakNet::GetCore()->printLn("Temporarily banning %s for sending nonsense data", playerId.ToString());
@@ -4699,7 +4709,8 @@ namespace RakNet
 #if !defined(_COMPATIBILITY_1)
 								AddToBanList(PlayerIDToDottedIP(playerId), remoteSystem->reliabilityLayer.GetTimeoutTime());
 #endif
-								delete[] data;
+								if (data)
+									delete[] data;
 							}
 						}
 					}
@@ -4796,7 +4807,8 @@ namespace RakNet
 									remoteSystem->pingAndClockDifferentialWriteIndex = 0;
 							}
 
-							delete [] data;
+							if (data)
+								delete [] data;
 						}
 						else if ( (unsigned char)data[0] == ID_INTERNAL_PING && byteSize == sizeof(unsigned char)+sizeof(RakNetTime) )
 						{
@@ -4813,7 +4825,8 @@ namespace RakNet
 							outBitStream.Write(timeMS);
 							SendImmediate( (char*)outBitStream.GetData(), outBitStream.GetNumberOfBitsUsed(), SYSTEM_PRIORITY, UNRELIABLE, 0, playerId, false, false, timeMS );
 
-							delete [] data;
+							if (data)
+								delete [] data;
 						}
 						else if ( (unsigned char) data[ 0 ] == ID_DISCONNECTION_NOTIFICATION )
 						{
@@ -4836,7 +4849,9 @@ namespace RakNet
 							output = (RPCID)index;
 	#endif
 							remoteSystem->rpcMap.AddIdentifierAtIndex((RPCID)output, index);
-							delete [] data;
+
+							if (data)
+								delete [] data;
 						}
 						else if ( (unsigned char) data[ 0 ] == ID_REQUEST_STATIC_DATA )
 						{
@@ -5026,7 +5041,8 @@ namespace RakNet
 	#ifdef _DO_PRINTF
 								SAMPRakNet::GetCore()->printLn( "Error: Got a connection accept when we didn't request the connection." );
 	#endif
-								delete [] data;
+								if (data)
+									delete [] data;
 							}
 						}
 						else
