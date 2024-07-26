@@ -33,8 +33,6 @@ typedef int SOCKET;
 
 #define LOCALHOST (0x0100007fu)
 
-#include <shared_mutex>
-
 class SAMPRakNet
 {
 public:
