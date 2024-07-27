@@ -20,7 +20,10 @@
 
 #include "RakNetDefines.h"
 #include "Export.h"
+#ifndef BUILD_FOR_CLIENT
 #include "../../SDK/include/types.hpp"
+#endif
+#include <functional>
 
 /// Forward declaration
 namespace RakNet

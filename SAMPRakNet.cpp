@@ -9,10 +9,19 @@
 #include <PacketEnumerations.h>
 
 uint8_t SAMPRakNet::buffer_[MAXIMUM_MTU_SIZE];
+#ifdef BUILD_FOR_CLIENT
+char SAMPRakNet::authkeyBuffer_[AUTHKEY_RESPONSE_LEN];
+bool SAMPRakNet::connectAsNpc_ = false;
+#endif
+#ifndef BUILD_FOR_CLIENT
 uint32_t SAMPRakNet::token_;
+#endif
 uint16_t SAMPRakNet::portNumber = 7777;
+#ifndef BUILD_FOR_CLIENT
 Query* SAMPRakNet::query_ = nullptr;
+#endif
 unsigned int SAMPRakNet::timeout_ = 10000;
+#ifndef BUILD_FOR_CLIENT
 unsigned int SAMPRakNet::minConnectionTime_ = 0;
 unsigned int SAMPRakNet::messagesLimit_ = 500;
 unsigned int SAMPRakNet::messageHoleLimit_ = 3000;
@@ -22,6 +31,7 @@ bool SAMPRakNet::logCookies_ = false;
 ICore* SAMPRakNet::core_ = nullptr;
 FlatHashSet<uint32_t> SAMPRakNet::incomingConnections_;
 RakNet::RakNetTime SAMPRakNet::gracePeriod_ = 0;
+#endif
 
 uint16_t
 SAMPRakNet::
@@ -600,6 +610,102 @@ SAMPRakNet::
     return buffer_;
 }
 
+#ifdef BUILD_FOR_CLIENT
+inline uint8_t transformAuthSha1(const uint8_t value, const uint8_t xorValue)
+{
+    static const uint8_t authHashTransformTable[] = {
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+        0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x80,
+        0x08, 0x06, 0x00, 0x00, 0x00, 0xE4, 0xB5, 0xB7, 0x0A, 0x00, 0x00, 0x00,
+        0x09, 0x70, 0x48, 0x59, 0x73, 0x00, 0x00, 0x0B, 0x13, 0x00, 0x00, 0x0B,
+        0x13, 0x01, 0x00, 0x9A, 0x9C, 0x18, 0x00, 0x00, 0x00, 0x04, 0x67, 0x41,
+        0x4D, 0x41, 0x00, 0x00, 0xB1, 0x8E, 0x7C, 0xFB, 0x51, 0x93, 0x00, 0x00,
+        0x00, 0x20, 0x63, 0x48, 0x52, 0x4D, 0x00, 0x00, 0x7A, 0x25, 0x00, 0x00,
+        0x80, 0x83, 0x00, 0x00, 0xF9, 0xFF, 0x00, 0x00, 0x80, 0xE9, 0x00, 0x00,
+        0x75, 0x30, 0x00, 0x00
+    };
+
+    uint8_t result = value;
+
+    for (const uint8_t &entry : authHashTransformTable) {
+      result = result ^ entry ^ xorValue;
+    }
+
+    return result;
+}
+
+inline const char * uint8ToHex(const uint8_t num) {
+    static uint8_t buffer[2];
+
+    buffer[0] = (num >> 4) & 0xF;
+    buffer[1] = num & 0xF;
+
+    for (uint8_t &entry : buffer) {
+        uint8_t result = entry + '0';
+
+        if (result > '9')
+            result = entry + '7';
+
+        entry = result;
+    }
+
+    return (char*)buffer;
+}
+
+char*
+SAMPRakNet::
+    PrepareAuthkeyResponse(const char* initialKey)
+{
+    static const uint8_t code_from_CAnimManager_AddAnimation[] =
+    {
+        0xFF, 0x25, 0x34, 0x39, // gta_sa.exe + 0x4D3AA0
+        0x4D, 0x00, 0x90, 0x90, // gta_sa.exe + 0x4D3AA4
+        0x90, 0x90, 0x56, 0x57, // gta_sa.exe + 0x4D3AAC
+        0x50, 0x8B, 0x44, 0x24, // gta_sa.exe + 0x4D3AA8
+        0x14, 0x8D, 0x0C, 0x80  // gta_sa.exe + 0x4D3AB0
+    };
+
+    RakNet::CSHA1 sha1;
+    sha1.Update( (unsigned char*) initialKey, strlen(initialKey) );
+    sha1.Final();
+
+    auto sha1_finalized = (uint32_t*)sha1.GetHash();
+
+    uint32_t sha1_digits[5];
+    for (int i = 0; i < 5; i++) {
+        uint32_t digit = sha1_finalized[i];
+        // Flipping bytes order
+        digit = ((digit & 0xFF) << 24) | ((digit & 0xFF00) << 8) |
+                ((digit >> 8) & 0xFF00) | ((digit >> 24) & 0xFF);
+        sha1_digits[i] = digit;
+    }
+
+    auto sha1_digits_u8 = (uint8_t*)&sha1_digits;
+
+    static const uint8_t xorValues[] = {
+        0x2F, 0x45, 0x6F, 0xDB
+    };
+
+    for (int i = 0; i < 20; i++) {
+        uint8_t xorVal = xorValues[i / 5];
+        sha1_digits_u8[i] = transformAuthSha1(sha1_digits_u8[i], xorVal);
+        sha1_digits_u8[i] ^= code_from_CAnimManager_AddAnimation[i];
+    }
+
+    for (int i = 0; i < 40;) {
+        uint8_t hash = sha1_digits_u8[i / 2];
+        const char* hashHex = uint8ToHex(hash);
+        authkeyBuffer_[i] = hashHex[0];
+        i++;
+        authkeyBuffer_[i] = hashHex[1];
+        i++;
+    }
+
+    return authkeyBuffer_;
+}
+#endif
+
+#ifndef BUILD_FOR_CLIENT
 void SAMPRakNet::
     HandleQuery(SOCKET instance, int outsize, const sockaddr_in& client, char const* buf, int insize)
 {
@@ -967,3 +1073,4 @@ bool SAMPRakNet::OnConnectionRequest(
 
     return true;
 }
+#endif

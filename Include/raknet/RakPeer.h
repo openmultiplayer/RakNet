@@ -18,6 +18,8 @@
 #ifndef __RAK_PEER_H
 #define __RAK_PEER_H
 
+#include <unordered_map>
+
 #include "Export.h"
 #include "RakPeerInterface.h"
 #include "ReliabilityLayer.h"
@@ -508,7 +510,9 @@ namespace RakNet
 			bool setAESKey; /// true if security is enabled.
 			RPCMap rpcMap; /// Mapping of RPC calls to single byte integers to save transmission bandwidth.
 			enum ConnectMode {NO_ACTION, DISCONNECT_ASAP, DISCONNECT_ASAP_SILENTLY, DISCONNECT_ON_NO_ACK, REQUESTED_CONNECTION, HANDLING_CONNECTION_REQUEST, UNVERIFIED_SENDER, SET_ENCRYPTION_ON_MULTIPLE_16_BYTE_PACKET, CONNECTED} connectMode;
+#ifndef BUILD_FOR_CLIENT
 			SAMPRakNet::RemoteSystemData sampData;
+#endif
 			bool isLogon;
 		};
 
@@ -529,7 +533,9 @@ namespace RakNet
 		friend void* UpdateNetworkLoop( void* arguments );
 	#endif
 
+#ifndef BUILD_FOR_CLIENT
 		friend bool __stdcall ProcessBan(RakPeer* rakPeer, PlayerID playerId, const char* data, const int length);
+#endif
 
 		// This is done to provide custom RPC handling when in a blocking RPC
 		Packet* ReceiveIgnoreRPC( void );
@@ -543,11 +549,13 @@ namespace RakNet
 		/// \return 0 if none
 		RemoteSystemStruct *GetRemoteSystemFromPlayerID( const PlayerID playerID, bool calledFromNetworkThread, bool onlyActive) const;
 		///Parse out a connection request packet
+#ifndef BUILD_FOR_CLIENT
 		void ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteSystem, PlayerID playerId, const char *data, int byteSize);
 		bool ParseConnectionAuthPacket(RakPeer::RemoteSystemStruct* remoteSystem, PlayerID playerId, unsigned char* data, int byteSize);
 		///When we get a connection request from an ip / port, accept it unless full
 		void OnConnectionRequest( RakPeer::RemoteSystemStruct *remoteSystem, unsigned char *AESKey, bool setAESKey );
 		void AcceptConnectionRequest(RakPeer::RemoteSystemStruct* remoteSystem);
+#endif
 		///Send a reliable disconnect packet to this player and disconnect them when it is delivered
 		void NotifyAndFlagForDisconnect( const PlayerID playerId, bool performImmediate, unsigned char orderingChannel );
 		///Returns how many remote systems initiated a connection to us
@@ -602,7 +610,7 @@ namespace RakNet
 
 		/// open.mp addition:
 		/// Let's create an array of player indexes using PlayerIDs
-		FlatHashMap<PlayerID, int> playerIndexes;
+		std::unordered_map<PlayerID, int> playerIndexes;
 
 		/// This is an array of pointers to RemoteSystemStruct
 		/// This allows us to preallocate the list when starting, so we don't have to allocate or delete at runtime.

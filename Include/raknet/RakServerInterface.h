@@ -429,8 +429,10 @@ namespace RakNet
 		/// \sa RakNetStatistics.h
 		virtual RakNetStatisticsStruct * GetStatistics( const PlayerID playerId )=0;
 
+#ifndef BUILD_FOR_CLIENT
 		/// Get SAMP data for a player from their ID
 		virtual SAMPRakNet::RemoteSystemData GetSAMPDataFromPlayerID(const PlayerID playerId) = 0;
+#endif
 
 		/// Get Remote System data for a player from their ID
 		virtual RakPeer::RemoteSystemStruct* GetRemoteSystemFromPlayerID(const PlayerID playerId) = 0;
