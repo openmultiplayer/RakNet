@@ -368,7 +368,7 @@ int SocketLayer::RecvFrom( const SOCKET s, RakPeer *rakPeer, int *errorCode )
 
 	if ( len != SOCKET_ERROR )
 	{
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 		if (len > 10 && data[0] == 'S' && data[1] == 'A' && data[2] == 'M' && data[3] == 'P')
 		{
 			SAMPRakNet::HandleQuery(s, len2, sa, data, len);
@@ -378,7 +378,7 @@ int SocketLayer::RecvFrom( const SOCKET s, RakPeer *rakPeer, int *errorCode )
 
 		unsigned short portnum;
 		portnum = ntohs( sa.sin_port );
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 		uint8_t* decrypted = SAMPRakNet::Decrypt((uint8_t*)data, len);
 		if (decrypted) {
 			ProcessNetworkPacket(sa.sin_addr.s_addr, portnum, (char*)decrypted, len - 1, rakPeer);
@@ -389,7 +389,7 @@ int SocketLayer::RecvFrom( const SOCKET s, RakPeer *rakPeer, int *errorCode )
 			SAMPRakNet::GetCore()->printLn("Dropping bad packet from %u.%u.%u.%u:%u!", addr[0], addr[1], addr[2], addr[3], sa.sin_port);
 		}
 #endif
-#else // BUILD_FOR_CLIENT
+#else // RAKNET_BUILD_FOR_CLIENT
 		ProcessNetworkPacket(sa.sin_addr.s_addr, portnum, data, len, rakPeer);
 #endif
 		return 1;
@@ -457,7 +457,7 @@ int SocketLayer::SendTo( SOCKET s, const char *data, int length, unsigned int bi
 	sa.sin_addr.s_addr = binaryAddress;
 	sa.sin_family = AF_INET;
 
-#ifdef BUILD_FOR_CLIENT
+#ifdef RAKNET_BUILD_FOR_CLIENT
 	data = (const char*)SAMPRakNet::Encrypt((uint8_t*)data, length);
 	length++;
 #endif

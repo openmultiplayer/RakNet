@@ -2684,7 +2684,7 @@ RakPeer::RemoteSystemStruct *RakPeer::GetRemoteSystemFromPlayerID( const PlayerI
 
 	return 0;
 }
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteSystem, PlayerID playerId, const char *data, int byteSize )
 {
@@ -3526,7 +3526,7 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 					// Found the index to stop
 					remoteSystem->isActive = false;
 					--activePeersCount;
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 					SAMPRakNet::SetRequestingConnection(target.binaryAddress, false);
 #endif
 
@@ -3909,7 +3909,7 @@ namespace RakNet
 	
 	}
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	bool __stdcall ProcessBan(RakPeer* rakPeer, PlayerID playerId, const char* data, const int length)
 	{
 		if (rakPeer->IsBanned(rakPeer->PlayerIDToDottedIP(playerId)))
@@ -3939,7 +3939,7 @@ namespace RakNet
 	void ProcessNetworkPacket( const unsigned int binaryAddress, const unsigned short port, const char *data, const int length, RakPeer *rakPeer )
 	#endif
 	{
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 		static RakNetTime minConnectionTick;
 		static RakNetTime minConnectionLogTick;
 #endif
@@ -3951,7 +3951,7 @@ namespace RakNet
 		playerId.binaryAddress = binaryAddress;
 		playerId.port = port;
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 		const bool needsBanCheck = (data[0] == ID_OPEN_CONNECTION_REQUEST || data[0] == ID_OPEN_CONNECTION_REPLY || data[0] == ID_CONNECTION_ATTEMPT_FAILED);
 
 	#if !defined(_COMPATIBILITY_1)
@@ -4111,7 +4111,7 @@ namespace RakNet
 		// Therefore, this datagram must be under 17 bits - otherwise it may be normal network traffic as the min size for a raknet send is 17 bits
 		else if ((unsigned char)(data)[0] == ID_OPEN_CONNECTION_REQUEST && length == sizeof(unsigned char)*3)
 		{
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 			if (!SAMPRakNet::OnConnectionRequest(rakPeer->connectionSocket, playerId, data, minConnectionTick, minConnectionLogTick))
 			{
 				return;
@@ -4123,13 +4123,13 @@ namespace RakNet
 
 			// If this guy is already connected and they initiated the connection, ignore the connection request
 			RakPeer::RemoteSystemStruct *rss = rakPeer->GetRemoteSystemFromPlayerID( playerId, true, true );
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 			static unsigned int s_uiLastProcessedBinaryAddr = 0;
 			static unsigned int s_uiLastProcessedConnTick = 0;
 #endif
 			if (rss==0 || rss->weInitiatedTheConnection==true)
 			{
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 				if (rakPeer->GetNumberOfUnverifiedInstances(binaryAddress) > 30)
 				{
 					SAMPRakNet::GetCore()->printLn("Blocking %s due to a 'server full' attack (1)", playerId.ToString());
@@ -4156,7 +4156,7 @@ namespace RakNet
 				unsigned char c[2];
 				if (rss) // If this guy is already connected remote system will be 0
 				{
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 					s_uiLastProcessedBinaryAddr = playerId.binaryAddress;
 					s_uiLastProcessedConnTick = RakNet::GetTime();
 #endif
@@ -4171,7 +4171,7 @@ namespace RakNet
 					rakPeer->messageHandlerList[i]->OnDirectSocketSend((char*)&c, 16, playerId);
 				SocketLayer::Instance()->SendTo( rakPeer->connectionSocket, (char*)&c, 2, playerId.binaryAddress, playerId.port );
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 				if (rss)
 				{
 					SAMPRakNet::SetRequestingConnection(binaryAddress, true);
@@ -4199,7 +4199,7 @@ namespace RakNet
 			}
 
 		}
-#ifdef BUILD_FOR_CLIENT
+#ifdef RAKNET_BUILD_FOR_CLIENT
 		// SAMP clientside connection cookie verification
 		else if ((unsigned char)(data)[0] == ID_OPEN_CONNECTION_COOKIE && length == sizeof(unsigned char)*3)
 		{
@@ -4306,7 +4306,7 @@ namespace RakNet
 				}
 			}
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 			if (shouldBanPeer && playerId.binaryAddress != LOCALHOST && GetTime() > SAMPRakNet::GetGracePeriod())
 			{
 				const char* playerIp = rakPeer->PlayerIDToDottedIP(playerId);
@@ -4318,7 +4318,7 @@ namespace RakNet
 		}
 		else
 		{
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 			if (ProcessBan(rakPeer, playerId, data, length))
 			{
 				return;
@@ -4433,7 +4433,7 @@ namespace RakNet
 					if ( errorCode != 0 && endThreads == false )
 					{
 	#ifdef _DO_PRINTF
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 						SAMPRakNet::GetCore()->printLn( "Server RecvFrom critical failure!" );
 #else
 						printf( "Server RecvFrom critical failure!\n" );
@@ -4660,7 +4660,7 @@ namespace RakNet
 					// }
 					// else connection shutting down, don't bother telling the user
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	#ifdef _DO_PRINTF
 					const char* ipPort = playerId.ToString(true);
 					SAMPRakNet::GetCore()->printLn("Connection dropped for player %s", ipPort);
@@ -4700,7 +4700,7 @@ namespace RakNet
 				// Ping this guy if it is time to do so
 				if ( remoteSystem->connectMode==RemoteSystemStruct::CONNECTED )
 				{
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 					// Taken from SA-MP 0.3.7 changes
 					if (!remoteSystem->isLogon)
 					{
@@ -4778,12 +4778,12 @@ namespace RakNet
 					{
 						if ( (unsigned char)(data)[0] == ID_CONNECTION_REQUEST )
 						{
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 							ParseConnectionRequestPacket(remoteSystem, playerId, (const char*)data, byteSize);
 #endif
 							delete [] data;
 						}
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 						else if ((unsigned char)(data)[0] != ID_AUTH_KEY || !ParseConnectionAuthPacket(remoteSystem, playerId, data, byteSize))
 						{
 							if ((unsigned char)(data)[0] == ID_RPC && remoteSystem->sampData.unverifiedRPCs++ < MAX_UNVERIFIED_RPCS)
@@ -4815,7 +4815,7 @@ namespace RakNet
 									delete[] data;
 							}
 						}
-#else // !BUILD_FOR_CLIENT
+#else // !RAKNET_BUILD_FOR_CLIENT
 						else
 						{
 							CloseConnectionInternal(playerId, false, true, 0);
@@ -4836,7 +4836,7 @@ namespace RakNet
 						{
 							// 04/27/06 This is wrong.  With cross connections, we can both have initiated the connection are in state REQUESTED_CONNECTION
 							// 04/28/06 Downgrading connections from connected will close the connection due to security at ((remoteSystem->connectMode!=RemoteSystemStruct::CONNECTED && time > remoteSystem->connectionTime && time - remoteSystem->connectionTime > 10000))
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 							if (remoteSystem->connectMode!=RemoteSystemStruct::CONNECTED)
 								ParseConnectionRequestPacket(remoteSystem, playerId, (const char*)data, byteSize);
 #endif
@@ -4854,7 +4854,7 @@ namespace RakNet
 								playerId==myPlayerId) // local system connect
 							{
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 								SAMPRakNet::SetRequestingConnection(playerId.binaryAddress, false);
 #endif
 
@@ -5052,7 +5052,7 @@ namespace RakNet
 									AESKey[ i ] = data[ 1 + i ] ^ ( ( unsigned char* ) ( message ) ) [ i ];
 
 								// Connect this player assuming we have open slots
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 								OnConnectionRequest( remoteSystem, AESKey, true );
 #endif
 							}
@@ -5159,7 +5159,7 @@ namespace RakNet
 								// Tell the remote system the connection failed
 								NotifyAndFlagForDisconnect(playerId, true, 0);
 	#ifdef _DO_PRINTF
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 								SAMPRakNet::GetCore()->printLn( "Error: Got a connection accept when we didn't request the connection." );
 #else
 								printf( "Error: Got a connection accept when we didn't request the connection.\n" );
@@ -5169,7 +5169,7 @@ namespace RakNet
 									delete [] data;
 							}
 						}
-#ifdef BUILD_FOR_CLIENT
+#ifdef RAKNET_BUILD_FOR_CLIENT
 						else if ( (unsigned char)(data)[0] == ID_AUTH_KEY && byteSize >= sizeof(unsigned char)*4 )
 						{
 							RakNet::BitStream inBitStream( (unsigned char *) data, byteSize, false );

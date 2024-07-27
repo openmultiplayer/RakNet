@@ -20,7 +20,7 @@
 
 #include "RakNetDefines.h"
 #include "Export.h"
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 #include "../../SDK/include/types.hpp"
 #endif
 #include <functional>

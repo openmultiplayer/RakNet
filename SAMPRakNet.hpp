@@ -24,11 +24,11 @@ typedef int SOCKET;
 
 #define MAX_AUTH_RESPONSE_LEN (64)
 
-#ifdef BUILD_FOR_CLIENT
+#ifdef RAKNET_BUILD_FOR_CLIENT
 #define AUTHKEY_RESPONSE_LEN (40)
 #endif
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 #include "../../Server/Components/LegacyNetwork/Query/query.hpp"
 #endif
 
@@ -42,7 +42,7 @@ typedef int SOCKET;
 class SAMPRakNet
 {
 public:
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	enum AuthType {
 		AuthType_Invalid,
 		AuthType_Player,
@@ -70,11 +70,11 @@ public:
 	static uint16_t GetPort();
 	static void SetPort(uint16_t value);
 
-#ifdef BUILD_FOR_CLIENT
+#ifdef RAKNET_BUILD_FOR_CLIENT
 	static char * PrepareAuthkeyResponse(const char* initialKey);
 #endif
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	static uint32_t GetToken() { return token_; }
 	static void SeedToken() { token_ = rand(); }
 
@@ -90,12 +90,12 @@ public:
 	static void SetTimeout(unsigned int timeout) { timeout_ = timeout; }
 	static unsigned int GetTimeout() { return timeout_; }
 
-#ifdef BUILD_FOR_CLIENT
+#ifdef RAKNET_BUILD_FOR_CLIENT
 	static void SetConnectionAsNpc(bool enabled) { connectAsNpc_ = enabled; }
 	static bool ShouldConnectAsNpc() { return connectAsNpc_; }
 #endif
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	static void SetQuery(Query* query) { query_ = query; }
 
 	static void SetLogCookies(bool log) { logCookies_ = log; }
@@ -145,19 +145,19 @@ public:
 
 private:
 	static uint8_t buffer_[MAXIMUM_MTU_SIZE];
-#ifdef BUILD_FOR_CLIENT
+#ifdef RAKNET_BUILD_FOR_CLIENT
 	static char authkeyBuffer_[AUTHKEY_RESPONSE_LEN];
 	static bool connectAsNpc_;
 #endif
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	static uint32_t token_;
 #endif
 	static uint16_t portNumber;
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	static Query *query_;
 #endif
 	static unsigned int timeout_;
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	static bool logCookies_;
     static unsigned int minConnectionTime_;
     static unsigned int messagesLimit_;

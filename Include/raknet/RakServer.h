@@ -435,7 +435,7 @@ namespace RakNet
 		/// \sa RakNetStatistics.h
 		RakNetStatisticsStruct * GetStatistics( const PlayerID playerId ) override;
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 		/// Return the SAMPRakNet RemoteSystemData for a player ID
 		virtual SAMPRakNet::RemoteSystemData GetSAMPDataFromPlayerID(const PlayerID playerId) override;
 #endif

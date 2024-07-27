@@ -9,19 +9,19 @@
 #include <PacketEnumerations.h>
 
 uint8_t SAMPRakNet::buffer_[MAXIMUM_MTU_SIZE];
-#ifdef BUILD_FOR_CLIENT
+#ifdef RAKNET_BUILD_FOR_CLIENT
 char SAMPRakNet::authkeyBuffer_[AUTHKEY_RESPONSE_LEN];
 bool SAMPRakNet::connectAsNpc_ = false;
 #endif
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 uint32_t SAMPRakNet::token_;
 #endif
 uint16_t SAMPRakNet::portNumber = 7777;
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 Query* SAMPRakNet::query_ = nullptr;
 #endif
 unsigned int SAMPRakNet::timeout_ = 10000;
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 unsigned int SAMPRakNet::minConnectionTime_ = 0;
 unsigned int SAMPRakNet::messagesLimit_ = 500;
 unsigned int SAMPRakNet::messageHoleLimit_ = 3000;
@@ -610,7 +610,7 @@ SAMPRakNet::
     return buffer_;
 }
 
-#ifdef BUILD_FOR_CLIENT
+#ifdef RAKNET_BUILD_FOR_CLIENT
 inline uint8_t transformAuthSha1(const uint8_t value, const uint8_t xorValue)
 {
     static const uint8_t authHashTransformTable[] = {
@@ -705,7 +705,7 @@ SAMPRakNet::
 }
 #endif
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 void SAMPRakNet::
     HandleQuery(SOCKET instance, int outsize, const sockaddr_in& client, char const* buf, int insize)
 {

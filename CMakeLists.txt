@@ -56,7 +56,7 @@ if (WIN32)
 endif()
 
 if (RAKNET_BUILD_FOR_CLIENT)
-	target_compile_definitions(raknet PUBLIC -DBUILD_FOR_CLIENT)
+	target_compile_definitions(raknet PUBLIC -DRAKNET_BUILD_FOR_CLIENT)
 else()
 	target_link_libraries(raknet OMP-SDK)
 endif()

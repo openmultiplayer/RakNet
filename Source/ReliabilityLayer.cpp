@@ -346,7 +346,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 
 	shouldBanPeer = false;
 	//int numberOfAcksInFrame = 0;
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	unsigned int acksLimit = 0;
 	unsigned int messageHoleLimit = 0;
 	unsigned int messagesLimit = 0;
@@ -381,7 +381,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 
 	RakNet::BitStream socketData( (unsigned char*) buffer, length, false ); // Convert the incoming data to a bitstream for easy parsing
 	time = RakNet::GetTimeNS();
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	acksLimit = SAMPRakNet::GetAcksLimit();
 	messageHoleLimit = SAMPRakNet::GetMessageHoleLimit();
 	messagesLimit = SAMPRakNet::GetMessagesLimit();
@@ -404,7 +404,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 
 			statistics.acknowlegementsReceived += incomingAcks.ranges[i].maxIndex - incomingAcks.ranges[i].minIndex;
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 			if (incomingAcks.ranges[i].maxIndex - incomingAcks.ranges[i].minIndex > messageHoleLimit)
 			{
 				unsigned int receivedAcks = incomingAcks.ranges[i].maxIndex - incomingAcks.ranges[i].minIndex;
@@ -457,7 +457,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 				statistics.perFrameAcksLimitCounter = 0;
 			}
 			
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 			if (statistics.perSecondAcksLimitCounter > acksLimit)
 			{
 				const char * ipPort = playerId.ToString(true);
@@ -598,7 +598,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 				statistics.perSecondMessagesLimitCounter = statistics.perFrameMessagesLimitCounter;
 				statistics.perFrameMessagesLimitCounter = 0;
 			}
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 			if (statistics.perSecondMessagesLimitCounter > messagesLimit)
 			{
 				const char* ipPort = playerId.ToString(true);
@@ -810,7 +810,7 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 				//	RakAssert(waitingForOrderedPacketReadIndex[ internalPacket->orderingChannel ] < internalPacket->orderingIndex);
 					statistics.orderedMessagesOutOfOrder++;
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 					if (statistics.orderedMessagesOutOfOrder > messageHoleLimit)
 					{
 						const char* ipPort = playerId.ToString(true);
@@ -1956,7 +1956,7 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 			return 0;
 		}
 
-#ifndef BUILD_FOR_CLIENT
+#ifndef RAKNET_BUILD_FOR_CLIENT
 		SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "dropping a split packet from client");
 #endif
 		internalPacketPool.ReleasePointer(internalPacket);
