@@ -4537,10 +4537,9 @@ namespace RakNet
 				//	printf("timeMS=%i remoteSystem->connectionTime=%i\n", timeMS, remoteSystem->connectionTime );
 
 					// Failed.  Inform the user?
-				/* if (remoteSystem->connectMode == RemoteSystemStruct::CONNECTED || remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION
+					if (remoteSystem->connectMode == RemoteSystemStruct::CONNECTED || remoteSystem->connectMode == RemoteSystemStruct::REQUESTED_CONNECTION
 						|| remoteSystem->connectMode==RemoteSystemStruct::DISCONNECT_ASAP || remoteSystem->connectMode==RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
 					{
-					*/
 						// Inform the user of the connection failure.
 					//	unsigned staticDataBytes;
 
@@ -4562,7 +4561,7 @@ namespace RakNet
 						packet->playerIndex = ( PlayerIndex ) remoteSystemIndex;
 
 						AddPacketToProducer(packet);
-					// }
+					}
 					// else connection shutting down, don't bother telling the user
 
 	#ifdef _DO_PRINTF
