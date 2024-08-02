@@ -513,41 +513,21 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 			// If the following conditional is true then this either a duplicate packet
 			// or an older out of order packet
 			// The subtraction unsigned overflow is intentional
-			holeCount = (MessageNumberType)(internalPacket->messageNumber-receivedPacketsBaseIndex);
-			const int typeRange = (MessageNumberType)-1;
-
-			if (holeCount==0)
+			if (internalPacket->reliability == RELIABLE || internalPacket->reliability == RELIABLE_SEQUENCED || internalPacket->reliability == RELIABLE_ORDERED)
 			{
-				// Got what we were expecting
-				if (hasReceivedPacketQueue.Size())
-					hasReceivedPacketQueue.Pop();
-				++receivedPacketsBaseIndex;
-			}
-			else if (holeCount > typeRange-typeRange/2)
-			{
-				// Underflow - got a packet we have already counted past
-				statistics.duplicateMessagesReceived++;
+				holeCount = (MessageNumberType)(internalPacket->messageNumber-receivedPacketsBaseIndex);
+				const int typeRange = (MessageNumberType)-1;
 
-				// Duplicate packet
-				if (internalPacket->data)
+				if (holeCount==0)
 				{
-					delete [] internalPacket->data;
+					// Got what we were expecting
+					if (hasReceivedPacketQueue.Size())
+						hasReceivedPacketQueue.Pop();
+					++receivedPacketsBaseIndex;
 				}
-
-				internalPacketPool.ReleasePointer( internalPacket );
-				goto CONTINUE_SOCKET_DATA_PARSE_LOOP;
-			}
-			else if (holeCount<hasReceivedPacketQueue.Size())
-			{
-				// Got a higher count out of order packet that was missing in the sequence or we already got
-				if (hasReceivedPacketQueue[holeCount]!=0) // non-zero means this is a hole
+				else if (holeCount > typeRange-typeRange/2)
 				{
-					// Fill in the hole
-					hasReceivedPacketQueue[holeCount]=0; // We got the packet at holeCount
-				}
-				else
-				{
-					// Not a hole - just a duplicate packet
+					// Underflow - got a packet we have already counted past
 					statistics.duplicateMessagesReceived++;
 
 					// Duplicate packet
@@ -559,26 +539,49 @@ bool ReliabilityLayer::HandleSocketReceiveFromConnectedPlayer( const char *buffe
 					internalPacketPool.ReleasePointer( internalPacket );
 					goto CONTINUE_SOCKET_DATA_PARSE_LOOP;
 				}
-			}
-			else // holeCount>=receivedPackets.Size()
-			{
-				// Got a higher count out of order packet whose messageNumber is higher than we have ever got
+				else if (holeCount<hasReceivedPacketQueue.Size())
+				{
+					// Got a higher count out of order packet that was missing in the sequence or we already got
+					if (hasReceivedPacketQueue[holeCount]!=0) // non-zero means this is a hole
+					{
+						// Fill in the hole
+						hasReceivedPacketQueue[holeCount]=0; // We got the packet at holeCount
+					}
+					else
+					{
+						// Not a hole - just a duplicate packet
+						statistics.duplicateMessagesReceived++;
 
-				// Add 0 times to the queue until (messageNumber - baseIndex) < queue size.
-				while ((MessageNumberType)(holeCount) > hasReceivedPacketQueue.Size())
-					hasReceivedPacketQueue.Push(time+(RakNetTimeNS)timeoutTime*1000); // Didn't get this packet - set the time to give up waiting
-				hasReceivedPacketQueue.Push(0); // Got the packet
+						// Duplicate packet
+						if (internalPacket->data)
+						{
+							delete [] internalPacket->data;
+						}
 
-				// If this assert hits then MessageNumberType has overflowed
-				RakAssert(hasReceivedPacketQueue.Size() < (unsigned int)((MessageNumberType)(-1)));
+						internalPacketPool.ReleasePointer( internalPacket );
+						goto CONTINUE_SOCKET_DATA_PARSE_LOOP;
+					}
+				}
+				else // holeCount>=receivedPackets.Size()
+				{
+					// Got a higher count out of order packet whose messageNumber is higher than we have ever got
 
-			}
+					// Add 0 times to the queue until (messageNumber - baseIndex) < queue size.
+					while ((MessageNumberType)(holeCount) > hasReceivedPacketQueue.Size())
+						hasReceivedPacketQueue.Push(time+(RakNetTimeNS)timeoutTime*1000); // Didn't get this packet - set the time to give up waiting
+					hasReceivedPacketQueue.Push(0); // Got the packet
 
-			// Pop all expired times.  0 means we got the packet, in which case we don't track this index either.
-			while ( hasReceivedPacketQueue.Size()>0 && hasReceivedPacketQueue.Peek() < time )
-			{
-				hasReceivedPacketQueue.Pop();
-				++receivedPacketsBaseIndex;
+					// If this assert hits then MessageNumberType has overflowed
+					RakAssert(hasReceivedPacketQueue.Size() < (unsigned int)((MessageNumberType)(-1)));
+
+				}
+
+				// Pop all expired times.  0 means we got the packet, in which case we don't track this index either.
+				while ( hasReceivedPacketQueue.Size()>0 && hasReceivedPacketQueue.Peek() < time )
+				{
+					hasReceivedPacketQueue.Pop();
+					++receivedPacketsBaseIndex;
+				}
 			}
 
 			this->statistics.perFrameMessagesLimitCounter++;
