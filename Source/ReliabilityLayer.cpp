@@ -1947,9 +1947,12 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 
 		SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "dropping a split packet from client");
 		internalPacketPool.ReleasePointer(internalPacket);
+		return 0;
 	}
 	else
+	{
 		internalPacket->splitPacketIndex = internalPacket->splitPacketCount = 0;
+	}
 
 	// Optimization - do byte alignment here
 	//unsigned char zero;
