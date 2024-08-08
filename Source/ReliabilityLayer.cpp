@@ -320,8 +320,6 @@ void ReliabilityLayer::FreeThreadSafeMemory( void )
 		sendPacketSet[ i ].ClearAndForceAllocation( 32 ); // Preallocate the send lists so we don't do a bunch of reallocations unnecessarily
 	}
 
-	internalPacketPool.ClearPool();
-
 	//messageHistogram.Clear();
 
 	acknowlegements.Clear();

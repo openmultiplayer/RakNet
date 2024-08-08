@@ -19,57 +19,17 @@
 
 using namespace RakNet;
 
-InternalPacketPool::InternalPacketPool()
-{	
-	// Speed things up by not reallocating at runtime when a mutex is locked.
-	pool.ClearAndForceAllocation( 64 );
-	unsigned i;
-	for (i=0; i < 64; i++)
-		pool.Push(new InternalPacket);
-}
+// open.mp's InternalPacketPool reimplementation.
+// Amir: Instead of relying on a super slow DataStructures::Queue<InternalPacket*> pool, we allocate and deallocate in time of need.
+// This way since we know when deallocation is needed and we do it, we don't have to rely on ClearPool usage in ReliablityLayer::FreeThreadedMemory;
+// Because no InternalPacket is left to be cleared/deallocated anyway.
 
-InternalPacketPool::~InternalPacketPool()
+InternalPacket* InternalPacketPool::GetPointer()
 {
-	ClearPool();
-}
-
-void InternalPacketPool::ClearPool( void )
-{
-	while ( pool.Size() )
-	{
-		InternalPacket* internalPacket = pool.Pop();
-		if (internalPacket)
-		{
-			delete internalPacket;
-		}
-	}
-}
-/*
-InternalPacket* InternalPacketPool::GetPointer( void )
-{
-	if ( pool.Size() )
-		return pool.Pop();
 	return new InternalPacket;
-
 }
-*/
 
-void InternalPacketPool::ReleasePointer( InternalPacket *p )
+void InternalPacketPool::ReleasePointer(InternalPacket* p)
 {
-	if ( p == 0 )
-	{
-		// Releasing a null pointer?
-
-		RakAssert( 0 );
-
-		return ;
-	}
-	
-//#ifdef _DEBUG
-	p->data=0;
-//#endif
-	//poolMutex.Lock();
-	pool.Push( p );
-	//poolMutex.Unlock();
+	delete p;
 }
-

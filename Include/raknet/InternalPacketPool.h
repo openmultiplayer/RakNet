@@ -22,35 +22,14 @@
 
 namespace RakNet
 {
+	/// open.mp's InternalPacketPool reimplementation
 	/// Handles of a pool of InternalPacket pointers.  This is only here for efficiency.
 	/// \sa InternalPacket.h
 	class InternalPacketPool
 	{
 	public:
-		
-		/// Constructor	
-		InternalPacketPool();
-		
-		/// Destructor	
-		~InternalPacketPool();
-		
-		/// Get an InternalPacket pointer.  Will either allocate a new one or return one from the pool
-		/// \return An InternalPacket pointer.
-		InternalPacket* GetPointer( void )
-		{if ( pool.Size() )
-			return pool.Pop();
-		return new InternalPacket;}
-		
-		/// Return an InternalPacket pointer to the pool.
-		/// \param[in] p A pointer to an InternalPacket you no longer need.
-		void ReleasePointer( InternalPacket *p );
-		
-		// Delete all InternalPacket pointers in the pool.	
-		void ClearPool( void );
-
-	private:
-		/// Queue of internal packets
-		DataStructures::Queue<InternalPacket*> pool;
+		InternalPacket* GetPointer();
+		void ReleasePointer(InternalPacket* p);
 	};
 }
 
