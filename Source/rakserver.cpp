@@ -459,6 +459,7 @@ RakPeer::RemoteSystemStruct* RakServer::GetRemoteSystemFromPlayerID(const Player
 	return RakPeer::GetRemoteSystemFromPlayerID(playerId, false, false);
 }
 
+#ifndef RAKNET_BUILD_FOR_CLIENT
 SAMPRakNet::RemoteSystemData RakServer::GetSAMPDataFromPlayerID(const PlayerID playerId)
 {
 	RemoteSystemStruct* remoteSystem = RakPeer::GetRemoteSystemFromPlayerID(playerId, false, false);
@@ -468,6 +469,7 @@ SAMPRakNet::RemoteSystemData RakServer::GetSAMPDataFromPlayerID(const PlayerID p
 
 	return remoteSystem->sampData;
 }
+#endif
 
 #ifdef _MSC_VER
 #pragma warning( pop )

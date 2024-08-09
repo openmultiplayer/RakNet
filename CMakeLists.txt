@@ -1,3 +1,5 @@
+option(RAKNET_BUILD_FOR_CLIENT "Build RakNet without server-side functionality" NO)
+
 if(WIN32)
 	add_definitions(
 		-D_CRT_SECURE_NO_WARNINGS
@@ -50,7 +52,11 @@ target_include_directories(raknet
 )
 
 if (WIN32)
-	target_link_libraries(raknet Ws2_32 OMP-SDK)
+	target_link_libraries(raknet Ws2_32)
+endif()
+
+if (RAKNET_BUILD_FOR_CLIENT)
+	target_compile_definitions(raknet PUBLIC -DRAKNET_BUILD_FOR_CLIENT)
 else()
 	target_link_libraries(raknet OMP-SDK)
 endif()
