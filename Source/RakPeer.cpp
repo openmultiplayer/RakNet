@@ -2544,8 +2544,6 @@ void RakPeer::RemoveFromRequestedConnectionsList( const PlayerID playerId )
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 int RakPeer::GetIndexFromPlayerID( const PlayerID playerId, bool calledFromNetworkThread )
 {
-	unsigned i;
-
 	if ( playerId == UNASSIGNED_PLAYER_ID )
 		return -1;
 
