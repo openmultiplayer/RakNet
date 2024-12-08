@@ -1210,18 +1210,8 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 
 	if (broadcast==false)
 	{
-#if !defined(_COMPATIBILITY_1)
-		sendList=(unsigned *)alloca(sizeof(unsigned));
-#else
-		sendList = new unsigned[1];
-#endif
-		remoteSystemIndex=GetIndexFromPlayerID( playerId, false );
-		if (remoteSystemIndex!=(unsigned)-1 &&
-			remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ASAP && 
-			remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY && 
-			remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
+		if (playerId != UNASSIGNED_PLAYER_ID)
 		{
-			sendList[0]=remoteSystemIndex;
 			sendListSize=1;
 		}
 		else if (router)
@@ -1311,7 +1301,10 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 		if (routeSend)
 			router->Send((const char*)outgoingBitStream.GetData(), outgoingBitStream.GetNumberOfBitsUsed(), priority,reliability,orderingChannel,playerId);
 		else
-			Send(&outgoingBitStream, priority, reliability, orderingChannel, remoteSystemList[sendList[sendListIndex]].playerId, false);
+		{
+			const PlayerID sendTo = broadcast ? remoteSystemList[sendList[sendListIndex]].playerId : playerId;
+			Send(&outgoingBitStream, priority, reliability, orderingChannel, sendTo, false);
+		}
 	}
 
 #if defined(_COMPATIBILITY_1)
