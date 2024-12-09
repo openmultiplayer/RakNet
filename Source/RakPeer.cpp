@@ -4184,6 +4184,14 @@ namespace RakNet
 				const char* playerIp = rakPeer->PlayerIDToDottedIP(playerId);
 				RakNetTime banTime = SAMPRakNet::GetNetworkLimitsBanTime();
 				rakPeer->AddToBanList(playerIp, banTime);
+
+				Packet* packet = AllocPacket(sizeof(char));
+				packet->data[0] = ID_DISCONNECTION_NOTIFICATION;
+				packet->bitSize = (sizeof(char)) * 8;
+				packet->playerId = playerId;
+				packet->playerIndex = (PlayerIndex)rakPeer->GetIndexFromPlayerID(playerId, true);
+				rakPeer->AddPacketToProducer(packet);
+
 				rakPeer->CloseConnectionInternal(playerId, false, true, 0);
 			}
 		}
