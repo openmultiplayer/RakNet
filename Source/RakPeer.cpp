@@ -817,7 +817,7 @@ bool RakPeer::GetConnectionList( PlayerID *remoteSystems, unsigned short *number
 //
 // Parameters:
 // data: The block of data to send
-// length: The size in bytes of the data to send
+// length: The size in bits of the data to send
 // bitStream: The bitstream to send
 // priority: What priority level to send on.
 // reliability: How reliability to send this data
@@ -845,11 +845,11 @@ bool RakPeer::Send( const char *data, const int length, PacketPriority priority,
 
 	if (broadcast==false && router && GetIndexFromPlayerID(playerId)==-1)
 	{
-		return router->Send(data, BYTES_TO_BITS(length), priority, reliability, orderingChannel, playerId);
+		return router->Send(data, length, priority, reliability, orderingChannel, playerId);
 	}
 	else
 	{
-		SendBuffered(data, length*8, priority, reliability, orderingChannel, playerId, broadcast, RemoteSystemStruct::NO_ACTION);
+		SendBuffered(data, length, priority, reliability, orderingChannel, playerId, broadcast, RemoteSystemStruct::NO_ACTION);
 	}
 
 	return true;

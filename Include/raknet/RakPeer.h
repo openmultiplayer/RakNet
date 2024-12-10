@@ -148,7 +148,7 @@ namespace RakNet
 		/// Sends a block of data to the specified system that you are connected to.
 		/// This function only works while the connected
 		/// \param[in] data The block of data to send
-		/// \param[in] length The size in bytes of the data to send
+		/// \param[in] length The size in bits of the data to send
 		/// \param[in] priority What priority level to send on.  See PacketPriority.h
 		/// \param[in] reliability How reliability to send this data.  See PacketPriority.h
 		/// \param[in] orderingChannel When using ordered or sequenced messages, what channel to order these on. Messages are only ordered relative to other messages on the same stream
