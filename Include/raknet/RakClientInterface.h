@@ -72,7 +72,7 @@ namespace RakNet
 		/// Sends a block of data to the specified system that you are connected to.
 		/// This function only works while the connected (Use the Connect function).
 		/// \param[in] data The block of data to send
-		/// \param[in] length The size in bytes of the data to send
+		/// \param[in] length The size in bits of the data to send
 		/// \param[in] priority What priority level to send on.
 		/// \param[in] reliability How reliability to send this data
 		/// \param[in] orderingChannel When using ordered or sequenced packets, what channel to order these on.- Packets are only ordered relative to other packets on the same stream
