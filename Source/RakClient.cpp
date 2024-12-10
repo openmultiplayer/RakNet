@@ -98,6 +98,14 @@ bool RakClient::HasPassword( void ) const
 	return password.GetNumberOfBytesUsed() > 0;
 }
 
+bool RakClient::Send( NetworkBitStream * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel )
+{
+	if ( remoteSystemList == 0 )
+		return false;
+		
+	return RakPeer::Send( bitStream, priority, reliability, orderingChannel, remoteSystemList[ 0 ].playerId, false );
+}
+
 bool RakClient::Send( const char *data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel )
 {
 	if ( remoteSystemList == 0 )

@@ -21,6 +21,7 @@
 #include "PacketPriority.h"
 #include "NetworkTypes.h"
 #include "Export.h"
+#include "bitstream.hpp"
 
 // Forward declarations
 namespace RakNet
@@ -127,6 +128,16 @@ namespace RakNet
 		/// \param[in] broadcast True to send this packet to all connected systems. If true, then playerId specifies who not to send the packet to.
 		/// \return False if we are not connected to the specified recipient.  True otherwise
 		virtual bool Send( const char *data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )=0;
+
+		/// Sends a block of data to the specified system that you are connected to.  Same as the above version, but takes a BitStream as input.
+		/// \param[in] bitStream The bitstream to send
+		/// \param[in] priority What priority level to send on.  See PacketPriority.h
+		/// \param[in] reliability How reliability to send this data.  See PacketPriority.h
+		/// \param[in] orderingChannel When using ordered or sequenced messages, what channel to order these on. Messages are only ordered relative to other messages on the same stream
+		/// \param[in] playerId Who to send this packet to, or in the case of broadcasting who not to send it to.  Use UNASSIGNED_PLAYER_ID to specify none
+		/// \param[in] broadcast True to send this packet to all connected systems. If true, then playerId specifies who not to send the packet to.
+		/// \return False if we are not connected to the specified recipient.  True otherwise
+		virtual bool Send( NetworkBitStream const * bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )=0;
 
 		/// Sends a block of data to the specified system that you are connected to.  Same as the above version, but takes a BitStream as input.
 		/// \param[in] bitStream The bitstream to send

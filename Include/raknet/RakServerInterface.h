@@ -81,7 +81,18 @@ namespace RakNet
 		/// \param[in] broadcast Whether to send to everyone or not.  If true, then the meaning of \a playerId changes to mean who NOT to send to.
 		/// \return Returns false on failure, true on success	
 		virtual bool Send( const char *data, const int length, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )=0;
-		
+
+		/// /pre The server must be active.
+		/// Send the data stream of length \a length to whichever \a playerId you specify.
+		/// \param[in] bitStream The bitstream to send.
+		/// \param[in] priority See PacketPriority
+		/// \param[in] reliability See PacketReliabilty
+		/// \param[in] orderingChannel The ordering channel to use, from 0 to 31.  Ordered or sequenced packets sent on the channel arrive ordered or sequence in relation to each other.  See the manual for more details on this.
+		/// \param[in] playerId Who to send to.  Specify UNASSIGNED_PLAYER_ID to designate all connected systems.
+		/// \param[in] broadcast Whether to send to everyone or not.  If true, then the meaning of \a playerId changes to mean who NOT to send to.
+		/// \return Returns false on failure, true on success	
+		virtual bool Send( NetworkBitStream const *bitStream, PacketPriority priority, PacketReliability reliability, char orderingChannel, PlayerID playerId, bool broadcast )=0;
+
 		/// /pre The server must be active.
 		/// Send the data stream of length \a length to whichever \a playerId you specify.
 		/// \param[in] bitStream The bitstream to send.
