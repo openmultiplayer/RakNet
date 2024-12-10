@@ -20,7 +20,6 @@
 
 #include "RakNetDefines.h"
 #include "Export.h"
-#include "../../SDK/include/types.hpp"
 
 /// Forward declaration
 namespace RakNet
@@ -267,17 +266,6 @@ namespace RakNet
 	/// \param[in] functionName The function name
 	#define UNREGISTER_CLASS_MEMBER_RPC(networkObject, className, functionName) (networkObject)->UnregisterAsRemoteProcedureCall((#className "_" #functionName))
 }
-
-template <>
-struct std::hash<RakNet::PlayerID>
-{
-	size_t operator()(const RakNet::PlayerID& r) const
-	{
-		std::hash<int> hasher;
-		int seed = r.port ^ hasher(r.binaryAddress) + 0x9e3779b9 + (r.port << 6) + (r.port >> 2);
-		return seed;
-	}
-};
 
 #endif
 

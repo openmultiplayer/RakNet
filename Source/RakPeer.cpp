@@ -288,7 +288,6 @@ bool RakPeer::Initialize( unsigned short maxConnections, unsigned short localPor
 			// remoteSystemList in Single thread
 			remoteSystemList[ i ].isActive = false;
 		}
-		playerIndexes.clear();
 
 		// Clear the lookup table.  Safe to call from the user thread since the network thread is now stopped
 		remoteSystemLookup.Clear();
@@ -690,7 +689,6 @@ void RakPeer::Disconnect( unsigned int blockDuration, unsigned char orderingChan
 		// Remove any remaining packets
 		remoteSystemList[ i ].reliabilityLayer.Reset(false);
 	}
-	playerIndexes.clear();
 
 	// Clear the lookup table.  Safe to call from the user thread since the network thread is now stopped
 	remoteSystemLookup.Clear();
@@ -1212,18 +1210,8 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 
 	if (broadcast==false)
 	{
-#if !defined(_COMPATIBILITY_1)
-		sendList=(unsigned *)alloca(sizeof(unsigned));
-#else
-		sendList = new unsigned[1];
-#endif
-		remoteSystemIndex=GetIndexFromPlayerID( playerId, false );
-		if (remoteSystemIndex!=(unsigned)-1 &&
-			remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ASAP && 
-			remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY && 
-			remoteSystemList[remoteSystemIndex].connectMode!=RemoteSystemStruct::DISCONNECT_ON_NO_ACK)
+		if (playerId != UNASSIGNED_PLAYER_ID)
 		{
-			sendList[0]=remoteSystemIndex;
 			sendListSize=1;
 		}
 		else if (router)
@@ -1313,7 +1301,10 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 		if (routeSend)
 			router->Send((const char*)outgoingBitStream.GetData(), outgoingBitStream.GetNumberOfBitsUsed(), priority,reliability,orderingChannel,playerId);
 		else
-			Send(&outgoingBitStream, priority, reliability, orderingChannel, remoteSystemList[sendList[sendListIndex]].playerId, false);
+		{
+			const PlayerID sendTo = broadcast ? remoteSystemList[sendList[sendListIndex]].playerId : playerId;
+			Send(&outgoingBitStream, priority, reliability, orderingChannel, sendTo, false);
+		}
 	}
 
 #if defined(_COMPATIBILITY_1)
@@ -2574,16 +2565,9 @@ int RakPeer::GetIndexFromPlayerID( const PlayerID playerId, bool calledFromNetwo
 	else
 	{
 		// remoteSystemList in user and network thread
-		auto it = playerIndexes.find(playerId);
-		if (it != playerIndexes.end())
-		{
-			auto index = it->second;
-			auto remoteSystem = remoteSystemList + index;
-			if (remoteSystem->isActive)
-			{
-				return index;
-			}
-		}
+		for ( i = 0; i < maximumNumberOfPeers; i++ )
+			if ( remoteSystemList[ i ].isActive && remoteSystemList[ i ].playerId == playerId )
+				return i;
 	}
 
 	return -1;
@@ -2657,24 +2641,14 @@ RakPeer::RemoteSystemStruct *RakPeer::GetRemoteSystemFromPlayerID( const PlayerI
 		int deadConnectionIndex=-1;
 
 		// Active connections take priority.  But if there are no active connections, return the first systemAddress match found
-		auto it = playerIndexes.find(playerID);
-		if (it != playerIndexes.end())
-		{
-			auto index = it->second;
-			auto remoteSystem = remoteSystemList + index;
-			if (remoteSystem->isActive)
-			{
-				return remoteSystem;
-			}
-		}
-
 		for ( i = 0; i < maximumNumberOfPeers; i++ )
 		{
 			if (remoteSystemList[ i ].playerId == playerID )
 			{
-				if ( !remoteSystemList[ i ].isActive )
-					if (deadConnectionIndex==-1)
-						deadConnectionIndex=i;
+				if ( remoteSystemList[ i ].isActive )
+					return remoteSystemList + i;
+				else if (deadConnectionIndex==-1)
+					deadConnectionIndex=i;
 			}
 		}
 
@@ -2864,7 +2838,6 @@ RakPeer::RemoteSystemStruct * RakPeer::AssignPlayerIDToRemoteSystemList( const P
 			remoteSystem=remoteSystemList+i;
 			remoteSystem->rpcMap.Clear();
 			remoteSystem->playerId = playerId;
-			playerIndexes.emplace(playerId, i);
 			remoteSystem->isActive=true; // This one line causes future incoming packets to go through the reliability layer
 			remoteSystem->reliabilityLayer.SetSplitMessageProgressInterval(splitMessageProgressInterval);
 			remoteSystem->reliabilityLayer.SetUnreliableTimeout(unreliableTimeout);
@@ -3493,7 +3466,7 @@ void RakPeer::PingInternal( const PlayerID target, bool performImmediate )
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnectionNotification, bool performImmediate, unsigned char orderingChannel )
 {
-	unsigned j;
+	unsigned i,j;
 
 
 	RakAssert(orderingChannel >=0 && orderingChannel < 32);
@@ -3513,34 +3486,34 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 	{
 		if (performImmediate)
 		{
+			i = 0;
 			// remoteSystemList in user thread
-			auto it = playerIndexes.find(target);
-			if (it != playerIndexes.end())
+			for ( ; i < maximumNumberOfPeers; i++ )
+				//for ( ; i < remoteSystemListSize; i++ )
 			{
-				auto index = it->second;
-				auto remoteSystem = remoteSystemList + index;
-				if (remoteSystem->isActive)
+				if ( remoteSystemList[ i ].isActive && remoteSystemList[ i ].playerId == target )
 				{
 					// Found the index to stop
-					remoteSystem->isActive = false;
-					--activePeersCount;
+					remoteSystemList[ i ].isActive=false;
+					-- activePeersCount;
 
 					SAMPRakNet::SetRequestingConnection(target.binaryAddress, false);
 
 					// Reserve this reliability layer for ourselves
 					//remoteSystemList[ i ].playerId = UNASSIGNED_PLAYER_ID;
-
-					for (j = 0; j < messageHandlerList.Size(); j++)
+					
+					for (j=0; j < messageHandlerList.Size(); j++)
 					{
 						messageHandlerList[j]->OnCloseConnection(this, target);
 					}
 
 					// Clear any remaining messages
-					remoteSystem->reliabilityLayer.Reset(false);
+					remoteSystemList[ i ].reliabilityLayer.Reset(false);
 
 					// Remove from the lookup list
 					remoteSystemLookup.Remove(target);
-					playerIndexes.erase(target);
+
+					break;
 				}
 			}
 		}
@@ -3565,33 +3538,20 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bool RakPeer::ValidSendTarget(PlayerID playerId, bool broadcast)
 {
-	if (broadcast == false)
+	unsigned remoteSystemIndex;
+
+	// remoteSystemList in user thread.  This is slow so only do it in debug
+	for ( remoteSystemIndex = 0; remoteSystemIndex < maximumNumberOfPeers; remoteSystemIndex++ )
+	//for ( remoteSystemIndex = 0; remoteSystemIndex < remoteSystemListSize; remoteSystemIndex++ )
 	{
-		auto it = playerIndexes.find(playerId);
-		if (it != playerIndexes.end())
-		{
-			auto remoteSystemIndex = it->second;
-			auto remoteSystem = remoteSystemList + remoteSystemIndex;
-			if (remoteSystem->isActive)
-			{
-				if (remoteSystem->connectMode == RakPeer::RemoteSystemStruct::CONNECTED)
-				{
-					return true;
-				}
-			}
-		}
+		if ( remoteSystemList[ remoteSystemIndex ].isActive &&
+			remoteSystemList[ remoteSystemIndex ].connectMode==RakPeer::RemoteSystemStruct::CONNECTED && // Not fully connected players are not valid user-send targets because the reliability layer wasn't reset yet
+			( ( broadcast == false && remoteSystemList[ remoteSystemIndex ].playerId == playerId ) ||
+			( broadcast == true && remoteSystemList[ remoteSystemIndex ].playerId != playerId ) )
+			)
+			return true;
 	}
-	else
-	{
-		for (auto& it : playerIndexes)
-		{
-			auto remoteSystemIndex = it.second;
-			if (remoteSystemList[remoteSystemIndex].isActive && remoteSystemList[remoteSystemIndex].connectMode == RakPeer::RemoteSystemStruct::CONNECTED && broadcast == true && remoteSystemList[remoteSystemIndex].playerId != playerId)
-			{
-				return true;
-			}
-		}
-	}
+
 	return false;
 }
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3666,13 +3626,13 @@ bool RakPeer::SendImmediate( char *data, int numberOfBitsToSend, PacketPriority 
 	//sendList = new unsigned[remoteSystemListSize];
 		sendList = new unsigned[maximumNumberOfPeers];
 #endif
-		for (auto& it : playerIndexes)
+
+		// remoteSystemList in network thread
+		for ( remoteSystemIndex = 0; remoteSystemIndex < maximumNumberOfPeers; remoteSystemIndex++ )
+		//for ( remoteSystemIndex = 0; remoteSystemIndex < remoteSystemListSize; remoteSystemIndex++ )
 		{
-			auto remoteSystemIndex = it.second;
-			if (remoteSystemList[remoteSystemIndex].isActive && remoteSystemList[remoteSystemIndex].playerId != playerId && remoteSystemList[remoteSystemIndex].playerId != UNASSIGNED_PLAYER_ID)
-			{
-				sendList[sendListSize++] = remoteSystemIndex;
-			}
+			if ( remoteSystemList[ remoteSystemIndex ].isActive && remoteSystemList[ remoteSystemIndex ].playerId != playerId && remoteSystemList[ remoteSystemIndex ].playerId != UNASSIGNED_PLAYER_ID )
+				sendList[sendListSize++]=remoteSystemIndex;
 		}
 	}
 
@@ -4224,6 +4184,14 @@ namespace RakNet
 				const char* playerIp = rakPeer->PlayerIDToDottedIP(playerId);
 				RakNetTime banTime = SAMPRakNet::GetNetworkLimitsBanTime();
 				rakPeer->AddToBanList(playerIp, banTime);
+
+				Packet* packet = AllocPacket(sizeof(char));
+				packet->data[0] = ID_DISCONNECTION_NOTIFICATION;
+				packet->bitSize = (sizeof(char)) * 8;
+				packet->playerId = playerId;
+				packet->playerIndex = (PlayerIndex)rakPeer->GetIndexFromPlayerID(playerId, true);
+				rakPeer->AddPacketToProducer(packet);
+
 				rakPeer->CloseConnectionInternal(playerId, false, true, 0);
 			}
 		}
