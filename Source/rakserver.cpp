@@ -160,7 +160,7 @@ Packet* RakServer::Receive( void )
 
 void RakServer::Kick(const PlayerID playerId)
 {
-    RakPeer::NotifyAndFlagForDisconnect(playerId, false, 0);
+    RakPeer::NotifyAndFlagForDisconnect(playerId, true, 0);
 }
 
 void RakServer::DeallocatePacket( Packet *packet )
