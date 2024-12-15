@@ -2544,6 +2544,8 @@ void RakPeer::RemoveFromRequestedConnectionsList( const PlayerID playerId )
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 int RakPeer::GetIndexFromPlayerID( const PlayerID playerId, bool calledFromNetworkThread )
 {
+	int i = 0;
+
 	if ( playerId == UNASSIGNED_PLAYER_ID )
 		return -1;
 
@@ -3475,6 +3477,8 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 
 	if ( remoteSystemList == 0 || endThreads == true )
 		return;
+
+	SAMPRakNet::ResetOmpPlayerConfiguration(target);
 
 	if (sendDisconnectionNotification)
 	{
