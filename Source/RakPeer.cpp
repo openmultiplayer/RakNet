@@ -2787,7 +2787,7 @@ void RakPeer::NotifyAndFlagForDisconnect(const PlayerID playerId, bool performIm
     temp.Write((unsigned char)ID_DISCONNECTION_NOTIFICATION);
     if (performImmediate) {
         SendImmediate((char*)temp.GetData(), temp.GetNumberOfBitsUsed(), LOW_PRIORITY, RELIABLE_ORDERED, orderingChannel, playerId, false, false, RakNet::GetTime());
-        RemoteSystemStruct* rss = GetRemoteSystemFromPlayerID(playerId, true, true);
+        RemoteSystemStruct* rss = GetRemoteSystemFromPlayerID(playerId, false, true);
         if (rss) {
             rss->connectMode = RemoteSystemStruct::DISCONNECT_ASAP;
         }
