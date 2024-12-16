@@ -737,7 +737,7 @@ bool SAMPRakNet::OnConnectionRequest(
 			std::mt19937 gen(rd()); // Mersenne Twister engine
 			std::uniform_int_distribution<uint32_t> dist(0, UINT32_MAX);
 
-			uint16_t randomInt = dist(gen);
+			uint32_t randomInt = dist(gen);
             ReplyToOmpClientAccessRequest(connectionSocket, playerId, randomInt);
         }
 	}
