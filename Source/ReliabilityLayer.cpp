@@ -1945,7 +1945,10 @@ InternalPacket* ReliabilityLayer::CreateInternalPacketFromBitStream( RakNet::Bit
 			return 0;
 		}
 
+#ifdef _DEBUG
 		SAMPRakNet::GetCore()->logLn(LogLevel::Warning, "dropping a split packet from client");
+#endif
+
 		internalPacketPool.ReleasePointer(internalPacket);
 		return 0;
 	}
