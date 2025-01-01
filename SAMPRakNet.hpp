@@ -187,13 +187,18 @@ public:
 			incomingConnections_.erase(binaryAddress);
 	}
 
+	static bool IsOmpEncryptionEnabled()
+	{
+		static bool* isEnabled = core_->getConfig().getBool("network.use_omp_encryption");
+		return isEnabled ? *isEnabled : false;
+	}
+
 	static bool OnConnectionRequest(
 		SOCKET connectionSocket,
 		RakNet::PlayerID& playerId,
 		const char* data,
 		RakNet::RakNetTime& minConnectionTick,
-		RakNet::RakNetTime& minConnectionLogTick
-	);
+		RakNet::RakNetTime& minConnectionLogTick);
 
 private:
 	static uint8_t decryptBuffer_[MAXIMUM_MTU_SIZE];

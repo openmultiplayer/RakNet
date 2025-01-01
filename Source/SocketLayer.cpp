@@ -456,12 +456,19 @@ int SocketLayer::SendTo( SOCKET s, const char *data, int length, unsigned int bi
 	do
 	{
 		// TODO - use WSASendTo which is faster.
-		auto hash = SAMPRakNet::HashPlayerID(PlayerID { binaryAddress, port });
 		auto encrypted = (uint8_t*)data;
-		if (SAMPRakNet::IsPlayerUsingOmp(hash))
+		if (SAMPRakNet::IsOmpEncryptionEnabled())
 		{
-			encrypted = SAMPRakNet::Encrypt(hash, (uint8_t*) data, length);
-			len = sendto(s, (char*)encrypted, length + 1, 0, (const sockaddr*)&sa, sizeof(struct sockaddr_in));
+			auto hash = SAMPRakNet::HashPlayerID(PlayerID { binaryAddress, port });
+			if (SAMPRakNet::IsPlayerUsingOmp(hash))
+			{
+				encrypted = SAMPRakNet::Encrypt(hash, (uint8_t*)data, length);
+				len = sendto(s, (char*)encrypted, length + 1, 0, (const sockaddr*)&sa, sizeof(struct sockaddr_in));
+			}
+			else
+			{
+				len = sendto(s, (char*)encrypted, length, 0, (const sockaddr*)&sa, sizeof(struct sockaddr_in));
+			}
 		}
 		else
 		{
