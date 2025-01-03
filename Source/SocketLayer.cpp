@@ -459,10 +459,10 @@ int SocketLayer::SendTo( SOCKET s, const char *data, int length, unsigned int bi
 		auto encrypted = (uint8_t*)data;
 		if (SAMPRakNet::IsOmpEncryptionEnabled())
 		{
-			auto hash = SAMPRakNet::HashPlayerID(PlayerID { binaryAddress, port });
-			if (SAMPRakNet::IsPlayerUsingOmp(hash))
+			auto encryptionData = SAMPRakNet::GetOmpPlayerEncryptionData(PlayerID { binaryAddress, port });
+			if (encryptionData)
 			{
-				encrypted = SAMPRakNet::Encrypt(hash, (uint8_t*)data, length);
+				encrypted = SAMPRakNet::Encrypt(encryptionData, (uint8_t*)data, length);
 				len = sendto(s, (char*)encrypted, length + 1, 0, (const sockaddr*)&sa, sizeof(struct sockaddr_in));
 			}
 			else

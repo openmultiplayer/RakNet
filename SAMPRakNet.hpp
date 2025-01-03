@@ -35,7 +35,7 @@ typedef int SOCKET;
 
 #include <shared_mutex>
 
-enum class OmpVersions
+enum class OmpVersion
 {
 	None = 0,
 	v0_0_1 = 0x000001,
@@ -47,11 +47,11 @@ using PlayerAddressHash = uint64_t;
 class SAMPRakNet
 {
 public:
-	static constexpr int ENCRYPTION_SEED_SIZE = 4;
+	static constexpr int ENCRYPTION_KEY_SIZE = 4;
 	static constexpr int MAGIC_OMP_IDENTIFICATION_NUMBER = 0x006F6D70; // sent to client on connect request and handled there so we know it's a real packet from us. it's basically 'omp' in 32bit btw
 	static constexpr int OMP_PETARDED = 0x6D70; // it's basically 'mp' in 16bit
 	static constexpr int SAMP_PETARDED = 0x6969; // it's from default SAMP... Petarded [S04E06]
-	static constexpr OmpVersions CURRENT_OMP_CLIENT_MOD_VERSION = OmpVersions::v0_1_4;
+	static constexpr OmpVersion CURRENT_OMP_CLIENT_MOD_VERSION = OmpVersion::v0_1_4;
 
 	enum AuthType
 	{
@@ -74,6 +74,24 @@ public:
 		}
 	};
 
+	struct OmpPlayerEncryptionData
+	{
+		uint32_t key;
+		OmpVersion version;
+
+		OmpPlayerEncryptionData()
+			: key(0)
+			, version(OmpVersion::None)
+		{
+		}
+
+		OmpPlayerEncryptionData(uint32_t _key, OmpVersion _version)
+			: key(_key)
+			, version(_version)
+		{
+		}
+	};
+
 	static void Init(ICore* core)
 	{
 		core_ = core;
@@ -86,7 +104,7 @@ public:
 	}
 
 	static uint8_t* Decrypt(uint8_t const* src, int len);
-	static uint8_t* Encrypt(PlayerAddressHash playerHash, uint8_t const* src, int len);
+	static uint8_t* Encrypt(const OmpPlayerEncryptionData* encryptionData, uint8_t const* src, int len);
 
 	static uint16_t GetPort();
 	static void SetPort(uint16_t value);
@@ -130,48 +148,60 @@ public:
 
 	static ICore* GetCore() { return core_; }
 
-	static void ReplyToOmpClientAccessRequest(SOCKET connectionSocket, const RakNet::PlayerID& playerId, uint32_t encryptionSeed);
+	static void ReplyToOmpClientAccessRequest(SOCKET connectionSocket, const RakNet::PlayerID& playerId, uint32_t encryptionKey);
 
 	static bool IsPlayerUsingOmp(PlayerAddressHash hash)
 	{
-		return playerUsingOmp_[hash];
+		return ompPlayers_.find(hash) != ompPlayers_.end();
 	}
 
 	static bool IsPlayerUsingOmp(const RakNet::PlayerID& player)
 	{
 		auto hash = HashPlayerID(player);
-		return playerUsingOmp_[hash];
+		return ompPlayers_.find(hash) != ompPlayers_.end();
 	}
 
 	static void ResetOmpPlayerConfiguration(const RakNet::PlayerID& player)
 	{
 		auto hash = HashPlayerID(player);
-		playerEncryptionSeeds_[hash] = 0;
-		playerUsingOmp_[hash] = false;
-		playerOmpVersion_[hash] = OmpVersions::None;
+		ompPlayers_.erase(hash);
 	}
 
-	static void ConfigurePlayerUsingOmp(const RakNet::PlayerID& player, uint32_t seed)
+	static void ConfigurePlayerUsingOmp(const RakNet::PlayerID& player, uint32_t key)
 	{
 		auto hash = HashPlayerID(player);
-		playerUsingOmp_[hash] = true;
-		SAMPRakNet::playerOmpVersion_[hash] = OmpVersions::None;
-
-		auto it = playerEncryptionSeeds_.find(hash);
-		if (it == playerEncryptionSeeds_.end())
-		{
-			playerEncryptionSeeds_.insert({ hash, seed });
-		}
-		else
-		{
-			playerEncryptionSeeds_[hash] = seed;
-		}
+		ompPlayers_[hash] = OmpPlayerEncryptionData(key, OmpVersion::None);
 	}
 
 	static void SetPlayerOmpVersion(const RakNet::PlayerID& player, uint32_t ompVersion)
 	{
 		auto hash = HashPlayerID(player);
-		SAMPRakNet::playerOmpVersion_[hash] = OmpVersions(ompVersion);
+		auto data = ompPlayers_.find(hash);
+		if (data != ompPlayers_.end())
+		{
+			data->second.version = OmpVersion(ompVersion);
+		}
+	}
+
+	static const OmpPlayerEncryptionData* GetOmpPlayerEncryptionData(PlayerAddressHash hash)
+	{
+		auto it = ompPlayers_.find(hash);
+		if (it != ompPlayers_.end())
+		{
+			return &it->second;
+		}
+		return nullptr;
+	}
+
+	static const OmpPlayerEncryptionData* GetOmpPlayerEncryptionData(const RakNet::PlayerID& player)
+	{
+		auto hash = HashPlayerID(player);
+		auto it = ompPlayers_.find(hash);
+		if (it != ompPlayers_.end())
+		{
+			return &it->second;
+		}
+		return nullptr;
 	}
 
 	static bool IsAlreadyRequestingConnection(unsigned int binaryAddress)
@@ -216,7 +246,5 @@ private:
 	static ICore* core_;
 	static FlatHashSet<uint32_t> incomingConnections_;
 	static RakNet::RakNetTime gracePeriod_;
-	static FlatHashMap<PlayerAddressHash, uint32_t> playerEncryptionSeeds_;
-	static FlatHashMap<PlayerAddressHash, bool> playerUsingOmp_;
-	static FlatHashMap<PlayerAddressHash, OmpVersions> playerOmpVersion_;
+	static FlatHashMap<PlayerAddressHash, OmpPlayerEncryptionData> ompPlayers_;
 };

@@ -24,9 +24,7 @@ bool SAMPRakNet::logCookies_ = false;
 ICore* SAMPRakNet::core_ = nullptr;
 FlatHashSet<uint32_t> SAMPRakNet::incomingConnections_;
 RakNet::RakNetTime SAMPRakNet::gracePeriod_ = 0;
-FlatHashMap<PlayerAddressHash, uint32_t> SAMPRakNet::playerEncryptionSeeds_;
-FlatHashMap<PlayerAddressHash, bool> SAMPRakNet::playerUsingOmp_;
-FlatHashMap<PlayerAddressHash, OmpVersions> SAMPRakNet::playerOmpVersion_;
+FlatHashMap<PlayerAddressHash, SAMPRakNet::OmpPlayerEncryptionData> SAMPRakNet::ompPlayers_;
 
 uint16_t
 SAMPRakNet::
@@ -326,20 +324,20 @@ SAMPRakNet::
 
 uint8_t*
 SAMPRakNet::
-	Encrypt(PlayerAddressHash playerHash, uint8_t const* src, int len)
+	Encrypt(const OmpPlayerEncryptionData* encryptionData, uint8_t const* src, int len)
 {
-	const auto seed = playerEncryptionSeeds_.at(playerHash);
+	const auto key = encryptionData->key;
     uint8_t checksum = 0;
 
-    uint8_t seedBytes[ENCRYPTION_SEED_SIZE];
-	seedBytes[0] = static_cast<uint8_t>(seed & 0xFF);
-	seedBytes[1] = static_cast<uint8_t>((seed >> 8) & 0xFF);
-	seedBytes[2] = static_cast<uint8_t>((seed >> 16) & 0xFF);
-	seedBytes[3] = static_cast<uint8_t>((seed >> 24) & 0xFF);
+    uint8_t keyBytes[ENCRYPTION_KEY_SIZE];
+	keyBytes[0] = static_cast<uint8_t>(key & 0xFF);
+	keyBytes[1] = static_cast<uint8_t>((key >> 8) & 0xFF);
+	keyBytes[2] = static_cast<uint8_t>((key >> 16) & 0xFF);
+	keyBytes[3] = static_cast<uint8_t>((key >> 24) & 0xFF);
 
 	for (size_t i = 0; i != len; ++i)
 	{
-		auto cur = src[i] ^ seedBytes[i % ENCRYPTION_SEED_SIZE];
+		auto cur = src[i] ^ keyBytes[i % ENCRYPTION_KEY_SIZE];
 		checksum ^= src[i] & 0xAA;
 		encryptBuffer_[i + 1] = cur;
 	}
@@ -654,17 +652,17 @@ uint16_t SAMPRakNet::GetCookie(unsigned int address)
     return (cookies[0][addressSplit[0]] | cookies[1][addressSplit[3]] << 8) ^ ((addressSplit[1] << 8) | addressSplit[2]);
 }
 
-void SAMPRakNet::ReplyToOmpClientAccessRequest(SOCKET connectionSocket, const RakNet::PlayerID& playerId, uint32_t encryptionSeed)
+void SAMPRakNet::ReplyToOmpClientAccessRequest(SOCKET connectionSocket, const RakNet::PlayerID& playerId, uint32_t encryptionKey)
 {
 	int len = 13;
 	char c[13];
 	c[0] = RakNet::ID_USER_PACKET_ENUM;
 	*(uint32_t*)&c[1] = MAGIC_OMP_IDENTIFICATION_NUMBER;
-	*(uint32_t*)&c[5] = encryptionSeed;
+	*(uint32_t*)&c[5] = encryptionKey;
 	*(uint32_t*)&c[9] = uint32_t(CURRENT_OMP_CLIENT_MOD_VERSION);
 
 	RakNet::SocketLayer::Instance()->SendTo(connectionSocket, (const char*)&c, len, playerId.binaryAddress, playerId.port);
-	ConfigurePlayerUsingOmp(playerId, encryptionSeed);
+	ConfigurePlayerUsingOmp(playerId, encryptionKey);
 }
 
 bool SAMPRakNet::OnConnectionRequest(
