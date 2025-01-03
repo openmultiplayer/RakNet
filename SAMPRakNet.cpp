@@ -716,8 +716,8 @@ bool SAMPRakNet::OnConnectionRequest(
     uint16_t xordCookie = *(uint16_t*)(data + 1);
 	if ((xordCookie ^ SAMP_PETARDED) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress)))
 	{
-        if ((xordCookie ^ OMP_PETARDED) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress))) // it's omp
-        {
+		if ((xordCookie ^ OMP_PETARDED) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress))) // it's omp
+		{
 #ifdef _DO_PRINTF
 			if (SAMPRakNet::ShouldLogCookies())
 			{
@@ -733,13 +733,16 @@ bool SAMPRakNet::OnConnectionRequest(
 		}
 		else
 		{
-			std::random_device rd; // Non-deterministic seed source
-			std::mt19937 gen(rd()); // Mersenne Twister engine
-			std::uniform_int_distribution<uint32_t> dist(0, UINT32_MAX);
+			if (IsOmpEncryptionEnabled())
+			{
+				std::random_device rd; // Non-deterministic seed source
+				std::mt19937 gen(rd()); // Mersenne Twister engine
+				std::uniform_int_distribution<uint32_t> dist(0, UINT32_MAX);
 
-			uint32_t randomInt = dist(gen);
-            ReplyToOmpClientAccessRequest(connectionSocket, playerId, randomInt);
-        }
+				uint32_t randomInt = dist(gen);
+				ReplyToOmpClientAccessRequest(connectionSocket, playerId, randomInt);
+			}
+		}
 	}
 
     return true;
