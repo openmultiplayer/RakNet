@@ -654,14 +654,18 @@ uint16_t SAMPRakNet::GetCookie(unsigned int address)
 
 void SAMPRakNet::ReplyToOmpClientAccessRequest(SOCKET connectionSocket, const RakNet::PlayerID& playerId, uint32_t encryptionKey)
 {
-	int len = 13;
-	char c[13];
-	c[0] = RakNet::ID_USER_PACKET_ENUM;
-	*(uint32_t*)&c[1] = MAGIC_OMP_IDENTIFICATION_NUMBER;
-	*(uint32_t*)&c[5] = encryptionKey;
-	*(uint32_t*)&c[9] = uint32_t(CURRENT_OMP_CLIENT_MOD_VERSION);
+	if (IsOmpEncryptionEnabled())
+	{
+		int len = 13;
+		char c[13];
+		c[0] = RakNet::ID_USER_PACKET_ENUM;
+		*(uint32_t*)&c[1] = MAGIC_OMP_IDENTIFICATION_NUMBER;
+		*(uint32_t*)&c[5] = encryptionKey;
+		*(uint32_t*)&c[9] = uint32_t(CURRENT_OMP_CLIENT_MOD_VERSION);
 
-	RakNet::SocketLayer::Instance()->SendTo(connectionSocket, (const char*)&c, len, playerId.binaryAddress, playerId.port);
+		RakNet::SocketLayer::Instance()->SendTo(connectionSocket, (const char*)&c, len, playerId.binaryAddress, playerId.port);
+	}
+
 	ConfigurePlayerUsingOmp(playerId, encryptionKey);
 }
 
@@ -731,15 +735,12 @@ bool SAMPRakNet::OnConnectionRequest(
 		}
 		else
 		{
-			if (IsOmpEncryptionEnabled())
-			{
-				std::random_device rd; // Non-deterministic seed source
-				std::mt19937 gen(rd()); // Mersenne Twister engine
-				std::uniform_int_distribution<uint32_t> dist(0, UINT32_MAX);
+			std::random_device rd; // Non-deterministic seed source
+			std::mt19937 gen(rd()); // Mersenne Twister engine
+			std::uniform_int_distribution<uint32_t> dist(0, UINT32_MAX);
 
-				uint32_t randomInt = dist(gen);
-				ReplyToOmpClientAccessRequest(connectionSocket, playerId, randomInt);
-			}
+			uint32_t randomInt = dist(gen);
+			ReplyToOmpClientAccessRequest(connectionSocket, playerId, randomInt);
 		}
 	}
 
