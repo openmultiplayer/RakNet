@@ -45,6 +45,8 @@
 #include "RakSleep.h"
 #include "RouterInterface.h"
 #include "RakAssert.h"
+#include <sdk.hpp>
+#include <thread>
 
 #if !defined ( __APPLE__ ) && !defined ( __APPLE_CC__ )
 #include <malloc.h>
@@ -66,6 +68,13 @@ using namespace RakNet;
 #ifdef _MSC_VER
 #pragma warning( push )
 #endif
+
+Microseconds rakNetSleepTimer;
+Microseconds rakNetSleepDuration;
+
+unsigned rakNetTicksPerSecond;
+unsigned rakNetTicksThisSecond;
+TimePoint rakNetTicksPerSecondLastUpdate;
 
 namespace RakNet
 {
@@ -5087,6 +5096,11 @@ namespace RakNet
 
 		rakPeer->isMainLoopThreadActive = true;
 
+		rakNetSleepTimer = Microseconds(static_cast<long long>(rakPeer->threadSleepTimer * 1000.0f));
+		static bool* rakNetUseDynTicksConfig = SAMPRakNet::GetCore()->getConfig().getBool("use_dyn_ticks");
+		TimePoint prev = Time::now();
+		rakNetSleepDuration = rakNetSleepTimer;
+
 		while ( rakPeer->endThreads == false )
 		{
 			rakPeer->RunUpdateCycle();
@@ -5098,7 +5112,26 @@ namespace RakNet
 				else
 					RakSleep(0);
 	#else // _WIN32
-					RakSleep( rakPeer->threadSleepTimer );
+				const TimePoint now = Time::now();
+				const Microseconds us = duration_cast<Microseconds>(now - prev);
+
+				if (*rakNetUseDynTicksConfig)
+				{
+					rakNetSleepDuration += rakNetSleepTimer - us;
+				}
+
+				prev = now;
+
+				if (now - rakNetTicksPerSecondLastUpdate >= Seconds(1))
+				{
+					rakNetTicksPerSecondLastUpdate = now;
+					rakNetTicksPerSecond = rakNetTicksThisSecond;
+					rakNetTicksThisSecond = 0u;
+				}
+				++rakNetTicksThisSecond;
+
+				std::this_thread::sleep_until(now + rakNetSleepDuration);
+				// RakSleep( rakPeer->threadSleepTimer );
 	#endif
 			}
 		}
