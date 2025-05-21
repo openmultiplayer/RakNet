@@ -1342,7 +1342,7 @@ bool RakPeer::RPC( RPCID  uniqueID, const char *data, unsigned int bitLength, Pa
 		// For unreliable messages, block until we get a reply, the connection is lost, or 3X the ping passes
 		while (blockOnRPCReply &&
 			((reliability==RELIABLE || reliability==RELIABLE_ORDERED || reliability==RELIABLE_SEQUENCED) ||
-			RakNet::GetTime() < stopWaitingTime))
+			(reliability == UNRELIABLE && RakNet::GetTime() < stopWaitingTime)))
 		{
 
 			RakSleep(30);
