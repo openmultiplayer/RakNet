@@ -18,8 +18,6 @@
 #ifndef __RAK_PEER_H
 #define __RAK_PEER_H
 
-#include <unordered_map>
-
 #include "Export.h"
 #include "RakPeerInterface.h"
 #include "ReliabilityLayer.h"
