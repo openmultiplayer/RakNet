@@ -25,6 +25,8 @@
 #include <assert.h>
 #include "MTUSize.h"
 #include "RakAssert.h"
+#include "PacketEnumerations.h"
+#include "RakPeer.h"
 
 #include "../../SAMPRakNet.hpp"
 
@@ -457,14 +459,32 @@ int SocketLayer::SendTo( SOCKET s, const char *data, int length, unsigned int bi
 	sa.sin_addr.s_addr = binaryAddress;
 	sa.sin_family = AF_INET;
 
-#ifdef RAKNET_BUILD_FOR_CLIENT
-	data = (const char*)SAMPRakNet::Encrypt((uint8_t*)data, length);
-	length++;
-#endif
 	do
 	{
 		// TODO - use WSASendTo which is faster.
-		len = sendto( s, data, length, 0, ( const sockaddr* ) & sa, sizeof( struct sockaddr_in ) );
+#ifndef RAKNET_BUILD_FOR_CLIENT
+		auto encrypted = (uint8_t*)data;
+		if (SAMPRakNet::IsOmpEncryptionEnabled())
+		{
+			auto encryptionData = SAMPRakNet::GetOmpPlayerEncryptionData(PlayerID { binaryAddress, port });
+			if (encryptionData)
+			{
+				encrypted = SAMPRakNet::Encrypt(encryptionData, (uint8_t*)data, length);
+				len = sendto(s, (char*)encrypted, length + 1, 0, (const sockaddr*)&sa, sizeof(struct sockaddr_in));
+			}
+			else
+			{
+				len = sendto(s, (char*)encrypted, length, 0, (const sockaddr*)&sa, sizeof(struct sockaddr_in));
+			}
+		}
+		else
+		{
+			len = sendto(s, (char*)encrypted, length, 0, (const sockaddr*)&sa, sizeof(struct sockaddr_in));
+		}
+#else
+		auto encrypted = SAMPRakNet::Encrypt((uint8_t*)data, length);
+		len = sendto(s, (char*)encrypted, length + 1, 0, (const sockaddr*)&sa, sizeof(struct sockaddr_in));
+#endif
 	}
 	while ( len == 0 );
 

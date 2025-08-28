@@ -3,12 +3,14 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <random>
 
 #include <RakPeer.h>
 #include <SocketLayer.h>
 #include <PacketEnumerations.h>
 
-uint8_t SAMPRakNet::buffer_[MAXIMUM_MTU_SIZE];
+uint8_t SAMPRakNet::decryptBuffer_[MAXIMUM_MTU_SIZE];
+uint8_t SAMPRakNet::encryptBuffer_[MAXIMUM_MTU_SIZE];
 #ifdef RAKNET_BUILD_FOR_CLIENT
 char SAMPRakNet::authkeyBuffer_[AUTHKEY_RESPONSE_LEN];
 bool SAMPRakNet::connectAsNpc_ = false;
@@ -31,8 +33,8 @@ bool SAMPRakNet::logCookies_ = false;
 ICore* SAMPRakNet::core_ = nullptr;
 FlatHashSet<uint32_t> SAMPRakNet::incomingConnections_;
 RakNet::RakNetTime SAMPRakNet::gracePeriod_ = 0;
+FlatHashMap<PlayerAddressHash, SAMPRakNet::OmpPlayerEncryptionData> SAMPRakNet::ompPlayers_;
 #endif
-
 uint16_t
 SAMPRakNet::
     GetPort()
@@ -321,14 +323,38 @@ SAMPRakNet::
             cur ^= port;
         cur = key[cur];
         checksum ^= cur & 0xAA;
-        buffer_[i - 1] = cur;
+		decryptBuffer_[i - 1] = cur;
     }
     if (src[0] != checksum) {
         return nullptr;
     }
-    return buffer_;
+	return decryptBuffer_;
 }
+#ifndef RAKNET_BUILD_FOR_CLIENT
+uint8_t*
+SAMPRakNet::
+	Encrypt(const OmpPlayerEncryptionData* encryptionData, uint8_t const* src, int len)
+{
+	const auto key = encryptionData->key;
+    uint8_t checksum = 0;
 
+    uint8_t keyBytes[ENCRYPTION_KEY_SIZE];
+	keyBytes[0] = static_cast<uint8_t>(key & 0xFF);
+	keyBytes[1] = static_cast<uint8_t>((key >> 8) & 0xFF);
+	keyBytes[2] = static_cast<uint8_t>((key >> 16) & 0xFF);
+	keyBytes[3] = static_cast<uint8_t>((key >> 24) & 0xFF);
+
+	for (size_t i = 0; i != len; ++i)
+	{
+		auto cur = src[i] ^ keyBytes[i % ENCRYPTION_KEY_SIZE];
+		checksum ^= src[i] & 0xAA;
+		encryptBuffer_[i + 1] = cur;
+	}
+
+	encryptBuffer_[0] = checksum;
+	return encryptBuffer_;
+}
+#else
 uint8_t*
 SAMPRakNet::
     Encrypt(uint8_t const* src, int len)
@@ -604,11 +630,12 @@ SAMPRakNet::
         cur = key[cur];
         if (i & 1)
             cur ^= port;
-        buffer_[i + 1] = cur;
+        encryptBuffer_[i + 1] = cur;
     }
-    buffer_[0] = checksum;
-    return buffer_;
+    encryptBuffer_[0] = checksum;
+    return encryptBuffer_;
 }
+#endif
 
 #ifdef RAKNET_BUILD_FOR_CLIENT
 inline uint8_t transformAuthSha1(const uint8_t value, const uint8_t xorValue)
@@ -1012,6 +1039,23 @@ uint16_t SAMPRakNet::GetCookie(unsigned int address)
     return (cookies[0][addressSplit[0]] | cookies[1][addressSplit[3]] << 8) ^ ((addressSplit[1] << 8) | addressSplit[2]);
 }
 
+void SAMPRakNet::ReplyToOmpClientAccessRequest(SOCKET connectionSocket, const RakNet::PlayerID& playerId, uint32_t encryptionKey)
+{
+	if (IsOmpEncryptionEnabled())
+	{
+		int len = 13;
+		char c[13];
+		c[0] = RakNet::ID_USER_PACKET_ENUM;
+		*(uint32_t*)&c[1] = MAGIC_OMP_IDENTIFICATION_NUMBER;
+		*(uint32_t*)&c[5] = encryptionKey;
+		*(uint32_t*)&c[9] = uint32_t(CURRENT_OMP_CLIENT_MOD_VERSION);
+
+		RakNet::SocketLayer::Instance()->SendTo(connectionSocket, (const char*)&c, len, playerId.binaryAddress, playerId.port);
+	}
+
+	ConfigurePlayerUsingOmp(playerId, encryptionKey);
+}
+
 bool SAMPRakNet::OnConnectionRequest(
     SOCKET connectionSocket,
     RakNet::PlayerID& playerId,
@@ -1020,6 +1064,8 @@ bool SAMPRakNet::OnConnectionRequest(
     RakNet::RakNetTime& minConnectionLogTick
 )
 {
+	ResetOmpPlayerConfiguration(playerId);
+
 	if (playerId.binaryAddress == LOCALHOST)
 	{
 		// Allow unlimited connections from localhost (testing and bots).
@@ -1056,19 +1102,33 @@ bool SAMPRakNet::OnConnectionRequest(
 		}
 	}
 
-    if ((*(uint16_t*)(data + 1) ^ 0x6969 /* Petarded [S04E06] */) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress)))
+    uint16_t xordCookie = *(uint16_t*)(data + 1);
+	if ((xordCookie ^ SAMP_PETARDED) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress)))
 	{
-#ifdef _DO_PRINTF
-		if (SAMPRakNet::ShouldLogCookies())
+		if ((xordCookie ^ OMP_PETARDED) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress))) // it's omp
 		{
-			core_->printLn("%s requests connection cookie", playerId.ToString());
-		}
+#ifdef _DO_PRINTF
+			if (SAMPRakNet::ShouldLogCookies())
+			{
+				core_->printLn("%s requests connection cookie", playerId.ToString());
+			}
 #endif
-		char c[3];
-		c[0] = RakNet::ID_OPEN_CONNECTION_COOKIE;
-		*(uint16_t*)&c[1] = (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress));
-		RakNet::SocketLayer::Instance()->SendTo(connectionSocket, (const char*)&c, 3, playerId.binaryAddress, playerId.port);
-		return false;
+			char c[3];
+			c[0] = RakNet::ID_OPEN_CONNECTION_COOKIE;
+			*(uint16_t*)&c[1] = (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress));
+			RakNet::SocketLayer::Instance()->SendTo(connectionSocket, (const char*)&c, 3, playerId.binaryAddress, playerId.port);
+			ResetOmpPlayerConfiguration(playerId);
+			return false;
+		}
+		else
+		{
+			std::random_device rd; // Non-deterministic seed source
+			std::mt19937 gen(rd()); // Mersenne Twister engine
+			std::uniform_int_distribution<uint32_t> dist(0, UINT32_MAX);
+
+			uint32_t randomInt = dist(gen);
+			ReplyToOmpClientAccessRequest(connectionSocket, playerId, randomInt);
+		}
 	}
 
     return true;
