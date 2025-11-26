@@ -20,6 +20,7 @@ unsigned int SAMPRakNet::messagesLimit_ = 500;
 unsigned int SAMPRakNet::messageHoleLimit_ = 3000;
 unsigned int SAMPRakNet::acksLimit_ = 3000;
 unsigned int SAMPRakNet::networkLimitsBanTime_ = 60000;
+float SAMPRakNet::minimumSendBitsPerSecond_ = 96000.0f;
 bool SAMPRakNet::logCookies_ = false;
 ICore* SAMPRakNet::core_ = nullptr;
 FlatHashSet<uint32_t> SAMPRakNet::incomingConnections_;

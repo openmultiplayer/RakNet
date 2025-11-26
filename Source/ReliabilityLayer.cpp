@@ -45,8 +45,6 @@ using namespace RakNet;
 
 static const int DEFAULT_HAS_RECEIVED_PACKET_QUEUE_SIZE=512;
 static const float PACKETLOSS_TOLERANCE=.02f; // What percentile packetloss we are willing to accept as background noise.
-static const double MINIMUM_SEND_BPS=14400.0; // Won't go below this send rate
-static const double STARTING_SEND_BPS=28800.0; // What send rate to start at.
 static const float PING_MULTIPLIER_TO_RESEND=3.0; // So internet ping variation doesn't cause needless resends
 static const RakNetTime MIN_PING_TO_RESEND=30; // So system timer changes and CPU lag don't send needless resends
 static const RakNetTimeNS TIME_TO_NEW_SAMPLE=500000; // How many ns to wait before starting a new sample.  This way buffers have time to overflow or relax at the new send rate, if they are indeed going to overflow.
@@ -184,14 +182,14 @@ void ReliabilityLayer::InitializeVariables( void )
 	splitPacketId = 0;
 	messageNumber = 0;
 	availableBandwidth=0;
-	lastUpdateTime= RakNet::GetTimeNS();
-	currentBandwidth=STARTING_SEND_BPS;
+	lastUpdateTime = RakNet::GetTimeNS();
+	currentBandwidth = SAMPRakNet::GetMinimumSendBitsPerSecond() * 2.0f;
 	// lastPacketSendTime=retransmittedFrames=sentPackets=sentFrames=receivedPacketsCount=bytesSent=bytesReceived=0;
 
 	deadConnection = cheater = false;
 	lastAckTime = 0;
 
-	lowBandwidth=STARTING_SEND_BPS;
+	lowBandwidth = SAMPRakNet::GetMinimumSendBitsPerSecond();
 	histogramStartTime=lastUpdateTime+TIME_TO_NEW_SAMPLE+ping*2*1000;
 	histogramEndTime=histogramStartTime+MAX_TIME_TO_SAMPLE;
 
@@ -1101,6 +1099,8 @@ void ReliabilityLayer::Update( SOCKET s, PlayerID playerId, int MTUSize, RakNetT
 		return;
 	}
 
+	const auto minimumSendBPS = SAMPRakNet::GetMinimumSendBitsPerSecond();
+
 	// Water canister has to have enough room to put more water in :)
 	double requiredBuffer=(float)((MTUSize+UDP_HEADER_SIZE)*8);
 	if (requiredBuffer > currentBandwidth)
@@ -1156,8 +1156,8 @@ void ReliabilityLayer::Update( SOCKET s, PlayerID playerId, int MTUSize, RakNetT
 					lowBandwidth*=.9;
 				}
 
-				if (lowBandwidth < MINIMUM_SEND_BPS)
-					lowBandwidth=MINIMUM_SEND_BPS;
+				if (lowBandwidth < minimumSendBPS)
+					lowBandwidth=minimumSendBPS;
 
 				delta = (highBandwidth-lowBandwidth)/2;
 				currentBandwidth=delta+lowBandwidth;
@@ -1188,12 +1188,12 @@ void ReliabilityLayer::Update( SOCKET s, PlayerID playerId, int MTUSize, RakNetT
 				if (packetloss > .2)
 				{
 					lowBandwidth/=2;
-					if (lowBandwidth < MINIMUM_SEND_BPS)
-						lowBandwidth=MINIMUM_SEND_BPS;
+					if (lowBandwidth < minimumSendBPS)
+						lowBandwidth=minimumSendBPS;
 				}
 
 				delta = (highBandwidth-lowBandwidth)/2;
-				if (delta < MINIMUM_SEND_BPS/4)
+				if (delta < minimumSendBPS/4)
 				{
 					// If no packetloss and done searching, increase the high range by 50%
 					if (packetloss==0.0)
@@ -1209,8 +1209,8 @@ void ReliabilityLayer::Update( SOCKET s, PlayerID playerId, int MTUSize, RakNetT
 					{
 						// If some packetloss, but not a huge amount and done searching, decrease the low range by 10%
 						lowBandwidth*=.9;
-						if (lowBandwidth < MINIMUM_SEND_BPS)
-							lowBandwidth=MINIMUM_SEND_BPS;
+						if (lowBandwidth < minimumSendBPS)
+							lowBandwidth=minimumSendBPS;
 					}
 					delta = (highBandwidth-lowBandwidth)/2;
 				}

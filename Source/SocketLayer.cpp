@@ -200,7 +200,7 @@ SOCKET SocketLayer::CreateBoundSocket( unsigned short port, bool blockingSocket,
 	setsockopt(listenSocket, SOL_SOCKET, SO_RCVBUF, ( char * ) & sock_opt, sizeof ( sock_opt ) );
 	
 	// This doesn't make much difference: 10% maybe
-	sock_opt=1024*16;
+	sock_opt=1024*128;
 	setsockopt(listenSocket, SOL_SOCKET, SO_SNDBUF, ( char * ) & sock_opt, sizeof ( sock_opt ) );
 
 	#if defined(_WIN32) && !defined(_COMPATIBILITY_1) && defined(_DEBUG)

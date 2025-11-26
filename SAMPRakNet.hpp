@@ -146,6 +146,9 @@ public:
 	static void SetGracePeriod(unsigned int time) { gracePeriod_ = RakNet::GetTime() + time; }
 	static RakNet::RakNetTime GetGracePeriod() { return gracePeriod_; }
 
+	static void SetMinimumSendBitsPerSecond(float bps) { minimumSendBitsPerSecond_ = bps; }
+	static inline float GetMinimumSendBitsPerSecond() { return minimumSendBitsPerSecond_; }
+
 	static ICore* GetCore() { return core_; }
 
 	static void ReplyToOmpClientAccessRequest(SOCKET connectionSocket, const RakNet::PlayerID& playerId, uint32_t encryptionKey);
@@ -243,6 +246,7 @@ private:
 	static unsigned int messageHoleLimit_;
 	static unsigned int acksLimit_;
 	static unsigned int networkLimitsBanTime_;
+	static float minimumSendBitsPerSecond_;
 	static ICore* core_;
 	static FlatHashSet<uint32_t> incomingConnections_;
 	static RakNet::RakNetTime gracePeriod_;
