@@ -24,7 +24,13 @@ typedef int SOCKET;
 
 #define MAX_AUTH_RESPONSE_LEN (64)
 
+#ifdef RAKNET_BUILD_FOR_CLIENT
+#define AUTHKEY_RESPONSE_LEN (40)
+#endif
+
+#ifndef RAKNET_BUILD_FOR_CLIENT
 #include "../../Server/Components/LegacyNetwork/Query/query.hpp"
+#endif
 
 #include "Include/raknet/NetworkTypes.h"
 #include "Include/raknet/GetTime.h"
@@ -32,8 +38,6 @@ typedef int SOCKET;
 #define MAX_UNVERIFIED_RPCS (5)
 
 #define LOCALHOST (0x0100007fu)
-
-#include <shared_mutex>
 
 enum class OmpVersion
 {
@@ -52,7 +56,7 @@ public:
 	static constexpr int OMP_PETARDED = 0x6D70; // it's basically 'mp' in 16bit
 	static constexpr int SAMP_PETARDED = 0x6969; // it's from default SAMP... Petarded [S04E06]
 	static constexpr OmpVersion CURRENT_OMP_CLIENT_MOD_VERSION = OmpVersion::v0_1_4;
-
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	enum AuthType
 	{
 		AuthType_Invalid,
@@ -73,7 +77,7 @@ public:
 		{
 		}
 	};
-
+#endif
 	struct OmpPlayerEncryptionData
 	{
 		uint32_t key;
@@ -91,7 +95,7 @@ public:
 		{
 		}
 	};
-
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	static void Init(ICore* core)
 	{
 		core_ = core;
@@ -102,13 +106,22 @@ public:
 	{
 		return (static_cast<PlayerAddressHash>(player.binaryAddress) << 16) | player.port;
 	}
+#endif
 
 	static uint8_t* Decrypt(uint8_t const* src, int len);
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	static uint8_t* Encrypt(const OmpPlayerEncryptionData* encryptionData, uint8_t const* src, int len);
-
+#else
+	static uint8_t* Encrypt(uint8_t const* src, int len);
+#endif
 	static uint16_t GetPort();
 	static void SetPort(uint16_t value);
 
+#ifdef RAKNET_BUILD_FOR_CLIENT
+	static char * PrepareAuthkeyResponse(const char* initialKey);
+#endif
+
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	static uint32_t GetToken() { return token_; }
 	static void SeedToken() { token_ = rand(); }
 
@@ -119,10 +132,17 @@ public:
 
 	static void SeedCookie();
 	static uint16_t GetCookie(unsigned int address);
+#endif
 
 	static void SetTimeout(unsigned int timeout) { timeout_ = timeout; }
 	static unsigned int GetTimeout() { return timeout_; }
 
+#ifdef RAKNET_BUILD_FOR_CLIENT
+	static void SetConnectionAsNpc(bool enabled) { connectAsNpc_ = enabled; }
+	static bool ShouldConnectAsNpc() { return connectAsNpc_; }
+#endif
+
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	static void SetQuery(Query* query) { query_ = query; }
 
 	static void SetLogCookies(bool log) { logCookies_ = log; }
@@ -232,14 +252,23 @@ public:
 		const char* data,
 		RakNet::RakNetTime& minConnectionTick,
 		RakNet::RakNetTime& minConnectionLogTick);
-
+#endif
 private:
 	static uint8_t decryptBuffer_[MAXIMUM_MTU_SIZE];
 	static uint8_t encryptBuffer_[MAXIMUM_MTU_SIZE];
+#ifdef RAKNET_BUILD_FOR_CLIENT
+	static char authkeyBuffer_[AUTHKEY_RESPONSE_LEN];
+	static bool connectAsNpc_;
+#endif
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	static uint32_t token_;
+#endif
 	static uint16_t portNumber;
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	static Query* query_;
+#endif
 	static unsigned int timeout_;
+#ifndef RAKNET_BUILD_FOR_CLIENT
 	static bool logCookies_;
 	static unsigned int minConnectionTime_;
 	static unsigned int messagesLimit_;
@@ -251,4 +280,5 @@ private:
 	static FlatHashSet<uint32_t> incomingConnections_;
 	static RakNet::RakNetTime gracePeriod_;
 	static FlatHashMap<PlayerAddressHash, OmpPlayerEncryptionData> ompPlayers_;
+#endif
 };
