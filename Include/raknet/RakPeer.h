@@ -476,6 +476,11 @@ namespace RakNet
 		/// \sa RakNetStatistics.h
 		RakNetStatisticsStruct * GetStatistics( const PlayerID playerId ) override;
 
+		/// Reserves a number of connection slots for internal use (e.g., NPCs).
+		/// Reserved slots are subtracted from the maximum peer limit when accepting new connections.
+		/// \param[in] count: The number of slots to reserve.
+		void ReserveSlots(unsigned short count) override;
+
 		// --------------------------------------------------------------------------------------------EVERYTHING AFTER THIS COMMENT IS FOR INTERNAL USE ONLY--------------------------------------------------------------------------------------------
 		/// \internal
 		RPCMap *GetRPCMap( const PlayerID playerId) override;
@@ -587,6 +592,9 @@ namespace RakNet
 
 		///Store number of active peers.
 		unsigned short activePeersCount;
+
+		///Store reserved slots, for the times slots are taken outside of RakNet
+		unsigned short reservedSlots;
 
 		//05/02/06 Just using maximumNumberOfPeers instead
 		///Store the maximum number of peers able to connect, including reserved connection slots for pings, etc.

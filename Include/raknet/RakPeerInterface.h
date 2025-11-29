@@ -448,6 +448,11 @@ namespace RakNet
 		/// \sa RakNetStatistics.h
 		virtual RakNetStatisticsStruct * GetStatistics( const PlayerID playerId )=0;
 
+		/// Reserves a number of connection slots for internal use (e.g., NPCs).
+		/// Reserved slots are subtracted from the maximum peer limit when accepting new connections.
+		/// \param[in] count: The number of slots to reserve.
+		virtual void ReserveSlots(unsigned short count) = 0;
+
 		// --------------------------------------------------------------------------------------------EVERYTHING AFTER THIS COMMENT IS FOR INTERNAL USE ONLY--------------------------------------------------------------------------------------------
 		/// \internal
 		virtual RPCMap *GetRPCMap( const PlayerID playerId)=0;

@@ -459,6 +459,11 @@ RakPeer::RemoteSystemStruct* RakServer::GetRemoteSystemFromPlayerID(const Player
 	return RakPeer::GetRemoteSystemFromPlayerID(playerId, false, false);
 }
 
+void RakServer::ReserveSlots(unsigned short count)
+{
+		RakPeer::ReserveSlots(count);
+}
+
 SAMPRakNet::RemoteSystemData RakServer::GetSAMPDataFromPlayerID(const PlayerID playerId)
 {
 	RemoteSystemStruct* remoteSystem = RakPeer::GetRemoteSystemFromPlayerID(playerId, false, false);

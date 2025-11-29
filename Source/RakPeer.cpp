@@ -177,6 +177,7 @@ RakPeer::RakPeer()
 	maximumIncomingConnections = 0;
 	maximumNumberOfPeers = 0;
 	activePeersCount = 0;
+	reservedSlots = 0;
 	//remoteSystemListSize=0;
 	remoteSystemList = 0;
 	bytesSentPerSecond = bytesReceivedPerSecond = 0;
@@ -292,6 +293,7 @@ bool RakPeer::Initialize( unsigned short maxConnections, unsigned short localPor
 		// Clear the lookup table.  Safe to call from the user thread since the network thread is now stopped
 		remoteSystemLookup.Clear();
 		activePeersCount = 0;
+		reservedSlots = 0;
 	}
 
 	// For histogram statistics
@@ -698,6 +700,7 @@ void RakPeer::Disconnect( unsigned int blockDuration, unsigned char orderingChan
 	maximumNumberOfPeers = 0;
 	//remoteSystemListSize = 0;
 	activePeersCount = 0;
+	reservedSlots = 0;
 
 	// Free any packets the user didn't deallocate
 	Packet **packet;
@@ -2520,6 +2523,11 @@ RakNetStatisticsStruct * RakPeer::GetStatistics( const PlayerID playerId )
 	return 0;
 }
 
+void RakPeer::ReserveSlots(unsigned short count)
+{
+		reservedSlots = count;
+}
+
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 /*
 void RakPeer::RemoveFromRequestedConnectionsList( const PlayerID playerId )
@@ -2826,8 +2834,10 @@ RakPeer::RemoteSystemStruct * RakPeer::AssignPlayerIDToRemoteSystemList( const P
 	RakAssert(playerId!=UNASSIGNED_PLAYER_ID);
 
 	// Check if maximum number of peers is reached .. without looping them.
-	if (activePeersCount == maximumNumberOfPeers)
+	if (activePeersCount >= maximumNumberOfPeers - reservedSlots)
+	{
 		return 0;
+	}
 
 	// remoteSystemList in user thread
 	for ( i = 0; i < maximumNumberOfPeers; i++ )

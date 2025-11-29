@@ -441,6 +441,11 @@ namespace RakNet
 		/// Get Remote System data for a player from their ID
 		virtual RakPeer::RemoteSystemStruct* GetRemoteSystemFromPlayerID(const PlayerID playerId) override;
 
+		/// Reserves a number of connection slots for internal use (e.g., NPCs).
+		/// Reserved slots are subtracted from the maximum peer limit when accepting new connections.
+		/// \param[in] count: The number of slots to reserve.
+		void ReserveSlots(unsigned short count) override;
+
 	private:
 		unsigned int seed, nextSeed;
 		RakNetTime broadcastPingsTime, nextSeedUpdate;
