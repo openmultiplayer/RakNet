@@ -2525,7 +2525,7 @@ RakNetStatisticsStruct * RakPeer::GetStatistics( const PlayerID playerId )
 
 void RakPeer::ReserveSlots(unsigned short count)
 {
-		reservedSlots = count;
+	reservedSlots = count;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
