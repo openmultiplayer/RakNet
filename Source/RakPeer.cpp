@@ -4575,7 +4575,7 @@ namespace RakNet
 
 					AddPacketToProducer(packet);
 
-					CloseConnectionInternal(playerId, false, true, 0);
+					CloseConnectionInternal(playerId, true, true, 2);
 					continue;
 				}
 
