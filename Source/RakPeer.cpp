@@ -63,6 +63,80 @@
 
 using namespace RakNet;
 
+namespace
+{
+void UpdateSynCookieHash(CSHA1 &sha1, const TransportAddress &transportAddress, const PlayerID &playerId, const unsigned char (&randomNumber)[20])
+{
+	sha1.Reset();
+	if (transportAddress.IsIPv6())
+	{
+		sha1.Update((unsigned char*)transportAddress.address, 16);
+		sha1.Update((unsigned char*)&transportAddress.port, sizeof(transportAddress.port));
+		sha1.Update((unsigned char*)&transportAddress.scopeId, sizeof(transportAddress.scopeId));
+	}
+	else
+	{
+		sha1.Update((unsigned char*)&playerId.binaryAddress, sizeof(playerId.binaryAddress));
+		sha1.Update((unsigned char*)&playerId.port, sizeof(playerId.port));
+	}
+	sha1.Update((unsigned char*)&randomNumber, 20);
+	sha1.Final();
+}
+
+TransportAddress PlayerIDToTransportAddress(const PlayerID &playerId)
+{
+	TransportAddress transportAddress;
+	if (playerId == UNASSIGNED_PLAYER_ID)
+		return transportAddress;
+
+	transportAddress.addressFamily = AF_INET;
+	transportAddress.port = playerId.port;
+	memcpy(transportAddress.address, &playerId.binaryAddress, sizeof(playerId.binaryAddress));
+	return transportAddress;
+}
+
+unsigned int HashTransportAddressToLegacyIPv4(const TransportAddress &transportAddress)
+{
+	if (transportAddress.IsIPv4())
+		return transportAddress.ToIPv4Binary();
+
+	unsigned int hash = 2166136261u;
+	auto mix = [&hash](uint8_t byte)
+	{
+		hash ^= byte;
+		hash *= 16777619u;
+	};
+
+	mix(static_cast<uint8_t>(transportAddress.addressFamily & 0xFF));
+	mix(static_cast<uint8_t>((transportAddress.addressFamily >> 8) & 0xFF));
+	mix(static_cast<uint8_t>(transportAddress.port & 0xFF));
+	mix(static_cast<uint8_t>((transportAddress.port >> 8) & 0xFF));
+
+	for (unsigned int i = 0; i < 16; ++i)
+		mix(transportAddress.address[i]);
+
+	mix(static_cast<uint8_t>(transportAddress.scopeId & 0xFF));
+	mix(static_cast<uint8_t>((transportAddress.scopeId >> 8) & 0xFF));
+	mix(static_cast<uint8_t>((transportAddress.scopeId >> 16) & 0xFF));
+	mix(static_cast<uint8_t>((transportAddress.scopeId >> 24) & 0xFF));
+
+	if (hash == 0 || hash == UNASSIGNED_PLAYER_ID.binaryAddress)
+		hash = 1;
+	return hash;
+}
+
+PlayerID TransportAddressToLegacyPlayerID(const TransportAddress &transportAddress)
+{
+	PlayerID playerId = UNASSIGNED_PLAYER_ID;
+	if (transportAddress.IsValid() == false)
+		return playerId;
+
+	playerId.binaryAddress = HashTransportAddressToLegacyIPv4(transportAddress);
+	playerId.port = transportAddress.port;
+	return playerId;
+}
+}
+
 #ifdef _MSC_VER
 #pragma warning( push )
 #endif
@@ -172,6 +246,7 @@ RakPeer::RakPeer()
 	rawBytesSent = rawBytesReceived = compressedBytesSent = compressedBytesReceived = 0;
 	outputTree = inputTree = 0;
 	connectionSocket = INVALID_SOCKET;
+	connectionSocketV6 = INVALID_SOCKET;
 	MTUSize = DEFAULT_MTU_SIZE;
 	trackFrequencyTable = false;
 	maximumIncomingConnections = 0;
@@ -186,6 +261,7 @@ RakPeer::RakPeer()
 	// isRecvfromThreadActive=false;
 	occasionalPing = false;
 	connectionSocket = INVALID_SOCKET;
+	connectionSocketV6 = INVALID_SOCKET;
 	myPlayerId = UNASSIGNED_PLAYER_ID;
 	allowConnectionResponseIPMigration = false;
 	blockOnRPCReply=false;
@@ -256,6 +332,12 @@ bool RakPeer::Initialize( unsigned short maxConnections, unsigned short localPor
 		unsigned short localPort2 = SocketLayer::Instance()->GetLocalPort(connectionSocket);
 		if (localPort2!=0)
 			localPort=localPort2;
+	}
+
+	if ( connectionSocketV6 == INVALID_SOCKET )
+	{
+		SocketBindParameters bindParameters(localPort, true, AF_INET6, true, 0);
+		connectionSocketV6 = SocketLayer::Instance()->CreateBoundSocket(bindParameters);
 	}
 
 #if defined (_WIN32) && defined(USE_WAIT_FOR_MULTIPLE_EVENTS)
@@ -735,6 +817,12 @@ void RakPeer::Disconnect( unsigned int blockDuration, unsigned char orderingChan
 	{
 		closesocket( connectionSocket );
 		connectionSocket = INVALID_SOCKET;
+	}
+
+	if ( connectionSocketV6 != INVALID_SOCKET )
+	{
+		closesocket( connectionSocketV6 );
+		connectionSocketV6 = INVALID_SOCKET;
 	}
 
 	ClearBufferedCommands();
@@ -2471,6 +2559,30 @@ unsigned short RakPeer::GetNumberOfUnverifiedInstances(const unsigned int binary
 	return result;
 }
 
+unsigned short RakPeer::GetNumberOfUnverifiedInstances(const TransportAddress &transportAddress)
+{
+	if (transportAddress.IsIPv4())
+		return GetNumberOfUnverifiedInstances(transportAddress.ToIPv4Binary());
+
+	unsigned short result = 0;
+	if (remoteSystemList && endThreads != true)
+	{
+		RemoteSystemStruct* pSystem = remoteSystemList;
+		for (unsigned short i = 0; i < maximumNumberOfPeers; i++)
+		{
+			if (pSystem && pSystem->isActive
+				&& pSystem->transportAddress == transportAddress
+				&& (pSystem->connectMode == RemoteSystemStruct::UNVERIFIED_SENDER
+				|| pSystem->isLogon == false))
+			{
+				result++;
+			}
+			pSystem++;
+		}
+	}
+	return result;
+}
+
 unsigned short RakPeer::GetNumberOfActivePeers()
 {
     unsigned short result = 0;
@@ -2666,6 +2778,30 @@ RakPeer::RemoteSystemStruct *RakPeer::GetRemoteSystemFromPlayerID( const PlayerI
 
 	return 0;
 }
+
+RakPeer::RemoteSystemStruct *RakPeer::GetRemoteSystemFromTransportAddress( const TransportAddress &transportAddress, bool onlyActive ) const
+{
+	int deadConnectionIndex = -1;
+
+	if (transportAddress.IsValid() == false || remoteSystemList == 0)
+		return 0;
+
+	for ( unsigned short i = 0; i < maximumNumberOfPeers; ++i )
+	{
+		if (remoteSystemList[ i ].transportAddress == transportAddress)
+		{
+			if (remoteSystemList[ i ].isActive)
+				return remoteSystemList + i;
+			if (deadConnectionIndex == -1)
+				deadConnectionIndex = i;
+		}
+	}
+
+	if (deadConnectionIndex != -1 && onlyActive == false)
+		return remoteSystemList + deadConnectionIndex;
+
+	return 0;
+}
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteSystem, PlayerID playerId, const char *data, int byteSize )
 {
@@ -2704,7 +2840,7 @@ void RakPeer::ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteS
 			}
 #if !defined(_COMPATIBILITY_1)
 			else
-				SecuredConnectionResponse( playerId );
+				SecuredConnectionResponse( playerId, remoteSystem->transportAddress );
 #endif
 		}
 		else
@@ -2848,6 +2984,7 @@ RakPeer::RemoteSystemStruct * RakPeer::AssignPlayerIDToRemoteSystemList( const P
 			remoteSystem=remoteSystemList+i;
 			remoteSystem->rpcMap.Clear();
 			remoteSystem->playerId = playerId;
+			remoteSystem->transportAddress = PlayerIDToTransportAddress(playerId);
 			remoteSystem->isActive=true; // This one line causes future incoming packets to go through the reliability layer
 			remoteSystem->reliabilityLayer.SetSplitMessageProgressInterval(splitMessageProgressInterval);
 			remoteSystem->reliabilityLayer.SetUnreliableTimeout(unreliableTimeout);
@@ -3282,6 +3419,11 @@ void RakPeer::GenerateSYNCookieRandomNumber( void )
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void RakPeer::SecuredConnectionResponse( const PlayerID playerId )
 {
+	SecuredConnectionResponse(playerId, PlayerIDToTransportAddress(playerId));
+}
+
+void RakPeer::SecuredConnectionResponse( const PlayerID playerId, const TransportAddress &transportAddress )
+{
 #if !defined(_COMPATIBILITY_1)
 	CSHA1 sha1;
 	RSA_BIT_SIZE n;
@@ -3294,11 +3436,7 @@ void RakPeer::SecuredConnectionResponse( const PlayerID playerId )
 
 	// Hash the SYN-Cookie
 	// s2c syn-cookie = SHA1_HASH(source ip address + source port + random number)
-	sha1.Reset();
-	sha1.Update( ( unsigned char* ) & playerId.binaryAddress, sizeof( playerId.binaryAddress ) );
-	sha1.Update( ( unsigned char* ) & playerId.port, sizeof( playerId.port ) );
-	sha1.Update( ( unsigned char* ) & ( newRandomNumber ), 20 );
-	sha1.Final();
+	UpdateSynCookieHash(sha1, transportAddress, playerId, newRandomNumber);
 
 	// Write the cookie
 	memcpy( connectionRequestResponse + 1, sha1.GetHash(), 20 );
@@ -3510,6 +3648,7 @@ void RakPeer::CloseConnectionInternal( const PlayerID target, bool sendDisconnec
 					-- activePeersCount;
 
 					SAMPRakNet::SetRequestingConnection(target.binaryAddress, false);
+					SAMPRakNet::SetRequestingConnection(remoteSystemList[ i ].transportAddress, false);
 
 					// Reserve this reliability layer for ourselves
 					//remoteSystemList[ i ].playerId = UNASSIGNED_PLAYER_ID;
@@ -3897,6 +4036,156 @@ namespace RakNet
 		}
 
 		return false;
+	}
+
+	void ProcessNetworkPacket( const TransportAddress &transportAddress, const char *data, const int length, RakPeer *rakPeer )
+	{
+		static RakNetTime minConnectionTick;
+		static RakNetTime minConnectionLogTick;
+		static unsigned int s_uiLastProcessedBinaryAddr = 0;
+		static unsigned int s_uiLastProcessedConnTick = 0;
+
+		if (transportAddress.IsIPv4())
+		{
+			ProcessNetworkPacket(transportAddress.ToIPv4Binary(), transportAddress.port, data, length, rakPeer);
+			return;
+		}
+
+		if (transportAddress.IsIPv6() == false)
+			return;
+
+		PlayerID playerId = TransportAddressToLegacyPlayerID(transportAddress);
+		SOCKET replySocket = rakPeer->connectionSocketV6 != INVALID_SOCKET ? rakPeer->connectionSocketV6 : rakPeer->connectionSocket;
+		unsigned i;
+
+		if ((unsigned char)(data)[0] == ID_OPEN_CONNECTION_REQUEST && length == sizeof(unsigned char) * 3)
+		{
+			if (!SAMPRakNet::OnConnectionRequest(replySocket, transportAddress, playerId, data, minConnectionTick, minConnectionLogTick))
+				return;
+
+			for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
+				rakPeer->messageHandlerList[i]->OnDirectSocketReceive(data, length*8, playerId);
+
+			RakPeer::RemoteSystemStruct *rss = rakPeer->GetRemoteSystemFromTransportAddress(transportAddress, true);
+			if (rss==0 || rss->weInitiatedTheConnection==true)
+			{
+				const unsigned int transportHash = HashTransportAddressToLegacyIPv4(transportAddress);
+				if (rakPeer->GetNumberOfUnverifiedInstances(transportAddress) > 30)
+					return;
+
+				if (transportHash == s_uiLastProcessedBinaryAddr
+					&& RakNet::GetTime() - s_uiLastProcessedConnTick < 30000
+					&& rakPeer->GetNumberOfActivePeers() == (rakPeer->GetMaximumNumberOfPeers() - 1))
+				{
+					return;
+				}
+
+				if (rss==0)
+					rss=rakPeer->AssignPlayerIDToRemoteSystemList(playerId, RakPeer::RemoteSystemStruct::UNVERIFIED_SENDER);
+
+				unsigned char c[2];
+				if (rss)
+				{
+					rss->transportAddress = transportAddress;
+					s_uiLastProcessedBinaryAddr = transportHash;
+					s_uiLastProcessedConnTick = RakNet::GetTime();
+					c[0] = ID_OPEN_CONNECTION_REPLY;
+				}
+				else
+				{
+					c[0] = ID_NO_FREE_INCOMING_CONNECTIONS;
+				}
+				c[1] = 0;
+
+				for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
+					rakPeer->messageHandlerList[i]->OnDirectSocketSend((char*)&c, 16, playerId);
+				SocketLayer::Instance()->SendTo(replySocket, (char*)&c, 2, transportAddress);
+
+				if (rss)
+					SAMPRakNet::SetRequestingConnection(transportAddress, true);
+				return;
+			}
+			else if (rss->connectMode==RakPeer::RemoteSystemStruct::CONNECTED ||
+				rss->connectMode==RakPeer::RemoteSystemStruct::DISCONNECT_ASAP ||
+				rss->connectMode==RakPeer::RemoteSystemStruct::DISCONNECT_ASAP_SILENTLY)
+			{
+				char c[2];
+				c[0] = ID_CONNECTION_ATTEMPT_FAILED;
+				c[1] = 0;
+				for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
+					rakPeer->messageHandlerList[i]->OnDirectSocketSend((char*)&c, 16, playerId);
+				SocketLayer::Instance()->SendTo(replySocket, (char*)&c, 2, transportAddress);
+				return;
+			}
+		}
+
+		RakPeer::RemoteSystemStruct *remoteSystem = rakPeer->GetRemoteSystemFromTransportAddress(transportAddress, true);
+		if (remoteSystem)
+		{
+			bool shouldBanPeer = false;
+			playerId = remoteSystem->playerId;
+
+			if (remoteSystem->connectMode==RakPeer::RemoteSystemStruct::SET_ENCRYPTION_ON_MULTIPLE_16_BYTE_PACKET &&
+#if RAKNET_LEGACY
+				(length%8)==0
+#else
+				(length%16)==0
+#endif
+				)
+			{
+				remoteSystem->reliabilityLayer.SetEncryptionKey( remoteSystem->AESKey );
+			}
+
+			if (remoteSystem->reliabilityLayer.HandleSocketReceiveFromConnectedPlayer(data, length, playerId, rakPeer->messageHandlerList, rakPeer->MTUSize, shouldBanPeer) == false)
+			{
+				Packet* packet = AllocPacket(1);
+				packet->data[0] = ID_MODIFIED_PACKET;
+				packet->bitSize = sizeof(char) * 8;
+				packet->playerId = playerId;
+				packet->playerIndex = (PlayerIndex) rakPeer->GetIndexFromPlayerID(playerId, true);
+				rakPeer->AddPacketToProducer(packet);
+			}
+
+			if (shouldBanPeer)
+			{
+				Packet* packet = AllocPacket(sizeof(char));
+				packet->data[0] = ID_DISCONNECTION_NOTIFICATION;
+				packet->bitSize = sizeof(char) * 8;
+				packet->playerId = playerId;
+				packet->playerIndex = (PlayerIndex) rakPeer->GetIndexFromPlayerID(playerId, true);
+				rakPeer->AddPacketToProducer(packet);
+				rakPeer->CloseConnectionInternal(playerId, false, true, 0);
+			}
+			return;
+		}
+
+		for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
+			rakPeer->messageHandlerList[i]->OnDirectSocketReceive(data, length*8, playerId);
+
+		if (((unsigned char)data[0] == ID_PING_OPEN_CONNECTIONS || (unsigned char)data[0] == ID_PING) &&
+			length == sizeof(unsigned char) + sizeof(RakNetTime))
+		{
+			if ((unsigned char)data[0] == ID_PING || rakPeer->AllowIncomingConnections())
+			{
+#if !defined(_COMPATIBILITY_1)
+				RakNet::BitStream inBitStream((unsigned char *) data, length, false);
+				inBitStream.IgnoreBits(8);
+				RakNetTime sendPingTime;
+				inBitStream.Read(sendPingTime);
+
+				RakNet::BitStream outBitStream;
+				outBitStream.Write((unsigned char)ID_PONG);
+				outBitStream.Write(sendPingTime);
+				rakPeer->rakPeerMutexes[ RakPeer::offlinePingResponse_Mutex ].Lock();
+				outBitStream.Write((char*)rakPeer->offlinePingResponse.GetData(), rakPeer->offlinePingResponse.GetNumberOfBytesUsed());
+				rakPeer->rakPeerMutexes[ RakPeer::offlinePingResponse_Mutex ].Unlock();
+
+				for (i=0; i < rakPeer->messageHandlerList.Size(); i++)
+					rakPeer->messageHandlerList[i]->OnDirectSocketSend((const char*)outBitStream.GetData(), outBitStream.GetNumberOfBytesUsed(), playerId);
+				SocketLayer::Instance()->SendTo(replySocket, (const char*)outBitStream.GetData(), outBitStream.GetNumberOfBytesUsed(), transportAddress);
+#endif
+			}
+		}
 	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -4305,6 +4594,10 @@ namespace RakNet
 		{
 			// Read a packet
 			gotData = SocketLayer::Instance()->RecvFrom( connectionSocket, this, &errorCode );
+			if (gotData != 1 && connectionSocketV6 != INVALID_SOCKET)
+			{
+				gotData = SocketLayer::Instance()->RecvFrom( connectionSocketV6, this, &errorCode );
+			}
 
 			if ( gotData == SOCKET_ERROR )
 			{
@@ -4500,7 +4793,11 @@ namespace RakNet
 					}
 				}
 
-				remoteSystem->reliabilityLayer.Update( connectionSocket, playerId, MTUSize, timeNS, messageHandlerList ); // playerId only used for the internet simulator test
+				SOCKET sendSocket = connectionSocket;
+				if (remoteSystem->transportAddress.IsIPv6() && connectionSocketV6 != INVALID_SOCKET)
+					sendSocket = connectionSocketV6;
+
+				remoteSystem->reliabilityLayer.Update( sendSocket, playerId, remoteSystem->transportAddress, MTUSize, timeNS, messageHandlerList ); // playerId only used for plugin callbacks and legacy bookkeeping
 
 				// Check for failure conditions
 				if ( remoteSystem->reliabilityLayer.IsDeadConnection() ||
@@ -4717,7 +5014,7 @@ namespace RakNet
 								playerId==myPlayerId) // local system connect
 							{
 
-								SAMPRakNet::SetRequestingConnection(playerId.binaryAddress, false);
+								SAMPRakNet::SetRequestingConnection(remoteSystem->transportAddress, false);
 
 								remoteSystem->connectMode=RemoteSystemStruct::CONNECTED;
 								PingInternal( playerId, true );
@@ -4866,11 +5163,7 @@ namespace RakNet
 
 							// Hash the SYN-Cookie
 							// s2c syn-cookie = SHA1_HASH(source ip address + source port + random number)
-							sha1.Reset();
-							sha1.Update( ( unsigned char* ) & playerId.binaryAddress, sizeof( playerId.binaryAddress ) );
-							sha1.Update( ( unsigned char* ) & playerId.port, sizeof( playerId.port ) );
-							sha1.Update( ( unsigned char* ) & ( newRandomNumber ), 20 );
-							sha1.Final();
+							UpdateSynCookieHash(sha1, remoteSystem->transportAddress, playerId, newRandomNumber);
 
 							// Confirm if
 							//syn-cookie ?= HASH(source ip address + source port + last random number)
@@ -4881,11 +5174,7 @@ namespace RakNet
 							}
 							else
 							{
-								sha1.Reset();
-								sha1.Update( ( unsigned char* ) & playerId.binaryAddress, sizeof( playerId.binaryAddress ) );
-								sha1.Update( ( unsigned char* ) & playerId.port, sizeof( playerId.port ) );
-								sha1.Update( ( unsigned char* ) & ( oldRandomNumber ), 20 );
-								sha1.Final();
+								UpdateSynCookieHash(sha1, remoteSystem->transportAddress, playerId, oldRandomNumber);
 
 								if ( memcmp( sha1.GetHash(), data + 1, 20 ) == 0 )
 									confirmedHash = true;

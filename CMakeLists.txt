@@ -54,3 +54,13 @@ if (WIN32)
 else()
 	target_link_libraries(raknet OMP-SDK)
 endif()
+
+add_executable(raknet-udp-probe tools/udp_probe.cpp)
+add_executable(raknet-omp-query-probe tools/omp_query_probe.cpp)
+add_executable(raknet-omp-connect-probe tools/omp_connect_probe.cpp)
+
+if (WIN32)
+	target_link_libraries(raknet-udp-probe Ws2_32)
+	target_link_libraries(raknet-omp-query-probe Ws2_32)
+	target_link_libraries(raknet-omp-connect-probe Ws2_32)
+endif()

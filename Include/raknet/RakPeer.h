@@ -499,6 +499,7 @@ namespace RakNet
 		{
 			bool isActive; /// Is this structure in use?
 			PlayerID playerId;  /// The remote system associated with this reliability layer
+			TransportAddress transportAddress; /// The transport address associated with this reliability layer
 			PlayerID myExternalPlayerId;  /// Your own IP, as reported by the remote system
 			ReliabilityLayer reliabilityLayer;  /// The reliability layer associated with this player
 			bool weInitiatedTheConnection; /// True if we started this connection via Connect.  False if someone else connected to us.
@@ -518,6 +519,7 @@ namespace RakNet
 		};
 
 		unsigned short GetNumberOfUnverifiedInstances(const unsigned int binaryAddress);
+		unsigned short GetNumberOfUnverifiedInstances(const TransportAddress &transportAddress);
 		unsigned short GetNumberOfActivePeers();
 
 	protected:
@@ -526,11 +528,13 @@ namespace RakNet
 		// friend unsigned __stdcall RecvFromNetworkLoop(LPVOID arguments);
 		friend void __stdcall ProcessPortUnreachable( const unsigned int binaryAddress, const unsigned short port, RakPeer *rakPeer );
 		friend void __stdcall ProcessNetworkPacket( const unsigned int binaryAddress, const unsigned short port, const char *data, const int length, RakPeer *rakPeer );
+		friend void __stdcall ProcessNetworkPacket( const TransportAddress &transportAddress, const char *data, const int length, RakPeer *rakPeer );
 		friend unsigned __stdcall UpdateNetworkLoop( LPVOID arguments );
 	#else
 		// friend void*  RecvFromNetworkLoop( void*  arguments );
 		friend void ProcessPortUnreachable( const unsigned int binaryAddress, const unsigned short port, RakPeer *rakPeer );
 		friend void ProcessNetworkPacket( const unsigned int binaryAddress, const unsigned short port, const char *data, const int length, RakPeer *rakPeer );
+		friend void ProcessNetworkPacket( const TransportAddress &transportAddress, const char *data, const int length, RakPeer *rakPeer );
 		friend void* UpdateNetworkLoop( void* arguments );
 	#endif
 
@@ -547,12 +551,14 @@ namespace RakNet
 		/// \param[in] playerID The player identifier 
 		/// \return 0 if none
 		RemoteSystemStruct *GetRemoteSystemFromPlayerID( const PlayerID playerID, bool calledFromNetworkThread, bool onlyActive) const;
+		RemoteSystemStruct *GetRemoteSystemFromTransportAddress( const TransportAddress &transportAddress, bool onlyActive ) const;
 		///Parse out a connection request packet
 		void ParseConnectionRequestPacket( RakPeer::RemoteSystemStruct *remoteSystem, PlayerID playerId, const char *data, int byteSize);
 		bool ParseConnectionAuthPacket(RakPeer::RemoteSystemStruct* remoteSystem, PlayerID playerId, unsigned char* data, int byteSize);
 		///When we get a connection request from an ip / port, accept it unless full
 		void OnConnectionRequest( RakPeer::RemoteSystemStruct *remoteSystem, unsigned char *AESKey, bool setAESKey );
 		void AcceptConnectionRequest(RakPeer::RemoteSystemStruct* remoteSystem);
+		void SecuredConnectionResponse( const PlayerID playerId, const TransportAddress &transportAddress );
 		///Send a reliable disconnect packet to this player and disconnect them when it is delivered
 		void NotifyAndFlagForDisconnect( const PlayerID playerId, bool performImmediate, unsigned char orderingChannel );
 		///Returns how many remote systems initiated a connection to us
@@ -754,9 +760,10 @@ namespace RakNet
 		int threadSleepTimer;
 
 		SOCKET connectionSocket;
-	#if defined (_WIN32) && defined(USE_WAIT_FOR_MULTIPLE_EVENTS)
-		WSAEVENT recvEvent;
-	#endif
+		SOCKET connectionSocketV6;
+		#if defined (_WIN32) && defined(USE_WAIT_FOR_MULTIPLE_EVENTS)
+			WSAEVENT recvEvent;
+		#endif
 
 		// Used for RPC replies
 		RakNet::BitStream *replyFromTargetBS;

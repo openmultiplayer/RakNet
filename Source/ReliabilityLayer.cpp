@@ -24,6 +24,21 @@
 
 #include "../SAMPRakNet.hpp"
 
+namespace
+{
+RakNet::TransportAddress PlayerIDToTransportAddress(const RakNet::PlayerID &playerId)
+{
+	RakNet::TransportAddress transportAddress;
+	if (playerId == RakNet::UNASSIGNED_PLAYER_ID)
+		return transportAddress;
+
+	transportAddress.addressFamily = AF_INET;
+	transportAddress.port = playerId.port;
+	memcpy(transportAddress.address, &playerId.binaryAddress, sizeof(playerId.binaryAddress));
+	return transportAddress;
+}
+}
+
 // alloca
 #ifdef _COMPATIBILITY_1
 #elif defined(_WIN32)
@@ -1061,6 +1076,11 @@ bool ReliabilityLayer::Send( char *data, int numberOfBitsToSend, PacketPriority 
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::Update( SOCKET s, PlayerID playerId, int MTUSize, RakNetTimeNS time, DataStructures::List<PluginInterface*> &messageHandlerList )
 {
+	Update(s, playerId, PlayerIDToTransportAddress(playerId), MTUSize, time, messageHandlerList);
+}
+
+void ReliabilityLayer::Update( SOCKET s, PlayerID playerId, const TransportAddress &transportAddress, int MTUSize, RakNetTimeNS time, DataStructures::List<PluginInterface*> &messageHandlerList )
+{
 #ifdef __USE_IO_COMPLETION_PORTS
 
 	if ( readWriteSocket == INVALID_SOCKET )
@@ -1112,7 +1132,7 @@ void ReliabilityLayer::Update( SOCKET s, PlayerID playerId, int MTUSize, RakNetT
 		GenerateDatagram( &updateBitStream, MTUSize, &reliableDataSent, time, playerId, messageHandlerList );
 		if ( updateBitStream.GetNumberOfBitsUsed() > 0 )
 		{
-			SendBitStream( s, playerId, &updateBitStream );
+			SendBitStream( s, transportAddress, &updateBitStream );
 			availableBandwidth-=updateBitStream.GetNumberOfBitsUsed()+UDP_HEADER_SIZE*8;
 		}
 		else
@@ -1237,6 +1257,11 @@ void ReliabilityLayer::Update( SOCKET s, PlayerID playerId, int MTUSize, RakNetT
 //-------------------------------------------------------------------------------------------------------
 void ReliabilityLayer::SendBitStream( SOCKET s, PlayerID playerId, RakNet::BitStream *bitStream )
 {
+	SendBitStream(s, PlayerIDToTransportAddress(playerId), bitStream);
+}
+
+void ReliabilityLayer::SendBitStream( SOCKET s, const TransportAddress &transportAddress, RakNet::BitStream *bitStream )
+{
 	// SHOW - showing reliable flow
 	// if (bitStream->GetNumberOfBytesUsed()>50)
 	//  printf("Sending %i bytes. sendQueue[0].Size()=%i, resendList.Size()=%i\n", bitStream->GetNumberOfBytesUsed(), sendQueue[0].Size(),resendList.Size());
@@ -1278,7 +1303,7 @@ void ReliabilityLayer::SendBitStream( SOCKET s, PlayerID playerId, RakNet::BitSt
 	statistics.totalBitsSent += length * 8;
 	//printf("total bits=%i length=%i\n", BITS_TO_BYTES(statistics.totalBitsSent), length);
 
-	SocketLayer::Instance()->SendTo( s, ( char* ) bitStream->GetData(), length, playerId.binaryAddress, playerId.port );
+	SocketLayer::Instance()->SendTo( s, ( char* ) bitStream->GetData(), length, transportAddress );
 #endif // __USE_IO_COMPLETION_PORTS
 
 	// lastPacketSendTime=time;

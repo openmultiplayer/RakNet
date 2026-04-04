@@ -44,6 +44,38 @@ namespace RakNet
 {
 	class RakPeer;
 
+	struct TransportAddress
+	{
+		unsigned short addressFamily;
+		unsigned short port;
+		unsigned int scopeId;
+		unsigned char address[16];
+
+		TransportAddress();
+		bool IsValid(void) const;
+		bool IsIPv4(void) const;
+		bool IsIPv6(void) const;
+		bool operator==(const TransportAddress &right) const;
+		bool operator!=(const TransportAddress &right) const;
+		unsigned int ToIPv4Binary(void) const;
+		bool ToSockaddr(sockaddr_storage *storage, socklen_t *len) const;
+		static TransportAddress FromSockaddr(const sockaddr *sa, socklen_t len);
+	};
+
+	struct SocketBindParameters
+	{
+		unsigned short port;
+		bool blockingSocket;
+		int addressFamily;
+		bool ipv6Only;
+		const char *forceHostAddress;
+
+		SocketBindParameters(unsigned short port_=0, bool blockingSocket_=true, int addressFamily_=AF_INET, bool ipv6Only_=false, const char *forceHostAddress_=0)
+			: port(port_), blockingSocket(blockingSocket_), addressFamily(addressFamily_), ipv6Only(ipv6Only_), forceHostAddress(forceHostAddress_)
+		{
+		}
+	};
+
 	// A platform independent implementation of Berkeley sockets, with settings used by RakNet
 	class SocketLayer
 	{
@@ -79,15 +111,18 @@ namespace RakNet
 		/// \param[in] port the remote port.
 		/// \return A new socket used for communication.
 		SOCKET Connect( SOCKET writeSocket, unsigned int binaryAddress, unsigned short port );
+		SOCKET Connect( SOCKET writeSocket, const TransportAddress &address );
 		
 		// Creates a bound socket to listen for incoming connections on the specified port
 		/// \param[in] port the port number 
 		/// \param[in] blockingSocket 
 		/// \return A new socket used for accepting clients 
-		SOCKET CreateBoundSocket( unsigned short port, bool blockingSocket, const char *forceHostAddress );
+		SOCKET CreateBoundSocket( unsigned short port, bool blockingSocket, const char *forceHostAddress=0 );
+		SOCKET CreateBoundSocket( const SocketBindParameters &parameters );
 
 		#if !defined(_COMPATIBILITY_1)
 		const char* DomainNameToIP( const char *domainName );
+		bool DomainNameToAddress( const char *domainName, unsigned short port, int addressFamily, TransportAddress *output );
 		#endif
 		
 		#ifdef __USE_IO_COMPLETION_PORTS
@@ -111,11 +146,13 @@ namespace RakNet
 		/// \param[in] errorCode An error code if an error occured .
 		/// \return Returns true if you successfully read data, false on error.
 		int RecvFrom( const SOCKET s, RakPeer *rakPeer, int *errorCode );
+		int RecvFrom( const SOCKET s, RakPeer *rakPeer, int *errorCode, TransportAddress *sender );
 		
 	#if !defined(_COMPATIBILITY_1)
 		/// Retrieve all local IP address in a string format.
 		/// \param[in] ipList An array of ip address in dotted notation.
 		void GetMyIP( char ipList[ 10 ][ 16 ] );
+		unsigned GetMyAddresses( TransportAddress *addresses, unsigned maxAddresses, int addressFamily );
 	#endif
 		
 		/// Call sendto (UDP obviously)
@@ -135,6 +172,7 @@ namespace RakNet
 		/// \param[in] port The port number to send to.
 		/// \return 0 on success, nonzero on failure.
 		int SendTo( SOCKET s, const char *data, int length, unsigned int binaryAddress, unsigned short port );
+		int SendTo( SOCKET s, const char *data, int length, const TransportAddress &address );
 			
 		/// Returns the local port, useful when passing 0 as the startup port.
 		/// \param[in] s The socket whose port we are referring to
@@ -151,4 +189,3 @@ namespace RakNet
 }
 
 #endif
-

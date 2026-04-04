@@ -125,7 +125,8 @@ namespace RakNet
 		/// \param[in] MTUSize maximum datagram size
 		/// \param[in] time current system time
 		/// \param[in] messageHandlerList A list of registered plugins
-		void Update(  SOCKET s, PlayerID playerId, int MTUSize, RakNetTimeNS time, DataStructures::List<PluginInterface*> &messageHandlerList );
+		void Update( SOCKET s, PlayerID playerId, int MTUSize, RakNetTimeNS time, DataStructures::List<PluginInterface*> &messageHandlerList );
+		void Update( SOCKET s, PlayerID playerId, const TransportAddress &transportAddress, int MTUSize, RakNetTimeNS time, DataStructures::List<PluginInterface*> &messageHandlerList );
 
 		/// If Read returns -1 and this returns true then a modified packetwas detected
 		/// \return true when a modified packet is detected
@@ -177,6 +178,7 @@ namespace RakNet
 		/// \param[in] playerId The address and port to send to
 		/// \param[in] bitStream The data to send.
 		void SendBitStream( SOCKET s, PlayerID playerId, RakNet::BitStream *bitStream );
+		void SendBitStream( SOCKET s, const TransportAddress &transportAddress, RakNet::BitStream *bitStream );
 
 		///Parse an internalPacket and create a bitstream to represent this dataReturns number of bits used
 		int WriteToBitStreamFromInternalPacket( RakNet::BitStream *bitStream, const InternalPacket *const internalPacket );

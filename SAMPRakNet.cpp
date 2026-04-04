@@ -348,7 +348,7 @@ SAMPRakNet::
 }
 
 void SAMPRakNet::
-    HandleQuery(SOCKET instance, int outsize, const sockaddr_in& client, char const* buf, int insize)
+    HandleQuery(SOCKET instance, int outsize, const sockaddr_storage& client, char const* buf, int insize)
 {
     if (query_ == nullptr) {
         return;
@@ -653,7 +653,25 @@ uint16_t SAMPRakNet::GetCookie(unsigned int address)
     return (cookies[0][addressSplit[0]] | cookies[1][addressSplit[3]] << 8) ^ ((addressSplit[1] << 8) | addressSplit[2]);
 }
 
+uint16_t SAMPRakNet::GetCookie(const RakNet::TransportAddress& address)
+{
+	if (address.IsIPv4())
+		return GetCookie(address.ToIPv4Binary());
+
+	const auto hash = HashTransportAddress(address);
+	return static_cast<uint16_t>((hash ^ (hash >> 16) ^ (hash >> 32) ^ (hash >> 48)) & 0xFFFFu);
+}
+
 void SAMPRakNet::ReplyToOmpClientAccessRequest(SOCKET connectionSocket, const RakNet::PlayerID& playerId, uint32_t encryptionKey)
+{
+	RakNet::TransportAddress address;
+	address.addressFamily = AF_INET;
+	address.port = playerId.port;
+	memcpy(address.address, &playerId.binaryAddress, sizeof(playerId.binaryAddress));
+	ReplyToOmpClientAccessRequest(connectionSocket, address, playerId, encryptionKey);
+}
+
+void SAMPRakNet::ReplyToOmpClientAccessRequest(SOCKET connectionSocket, const RakNet::TransportAddress& address, const RakNet::PlayerID& playerId, uint32_t encryptionKey)
 {
 	if (IsOmpEncryptionEnabled())
 	{
@@ -664,7 +682,7 @@ void SAMPRakNet::ReplyToOmpClientAccessRequest(SOCKET connectionSocket, const Ra
 		*(uint32_t*)&c[5] = encryptionKey;
 		*(uint32_t*)&c[9] = uint32_t(CURRENT_OMP_CLIENT_MOD_VERSION);
 
-		RakNet::SocketLayer::Instance()->SendTo(connectionSocket, (const char*)&c, len, playerId.binaryAddress, playerId.port);
+		RakNet::SocketLayer::Instance()->SendTo(connectionSocket, (const char*)&c, len, address);
 	}
 
 	ConfigurePlayerUsingOmp(playerId, encryptionKey);
@@ -678,9 +696,26 @@ bool SAMPRakNet::OnConnectionRequest(
     RakNet::RakNetTime& minConnectionLogTick
 )
 {
+	RakNet::TransportAddress address;
+	address.addressFamily = AF_INET;
+	address.port = playerId.port;
+	memcpy(address.address, &playerId.binaryAddress, sizeof(playerId.binaryAddress));
+	return OnConnectionRequest(connectionSocket, address, playerId, data, minConnectionTick, minConnectionLogTick);
+}
+
+bool SAMPRakNet::OnConnectionRequest(
+    SOCKET connectionSocket,
+    const RakNet::TransportAddress& address,
+    RakNet::PlayerID& playerId,
+    const char* data,
+    RakNet::RakNetTime& minConnectionTick,
+    RakNet::RakNetTime& minConnectionLogTick
+)
+{
 	ResetOmpPlayerConfiguration(playerId);
 
-	if (playerId.binaryAddress == LOCALHOST)
+	if ((address.IsIPv4() && playerId.binaryAddress == LOCALHOST) ||
+		(address.IsIPv6() && IN6_IS_ADDR_LOOPBACK(reinterpret_cast<const in6_addr*>(address.address))))
 	{
 		// Allow unlimited connections from localhost (testing and bots).
 	}
@@ -691,7 +726,7 @@ bool SAMPRakNet::OnConnectionRequest(
 		{
 			// Allow unlimited connections during the grace period
 		}
-		else if (SAMPRakNet::IsAlreadyRequestingConnection(playerId.binaryAddress))
+		else if (SAMPRakNet::IsAlreadyRequestingConnection(address))
 		{
 			return false;
 		}
@@ -717,9 +752,9 @@ bool SAMPRakNet::OnConnectionRequest(
 	}
 
     uint16_t xordCookie = *(uint16_t*)(data + 1);
-	if ((xordCookie ^ SAMP_PETARDED) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress)))
+	if ((xordCookie ^ SAMP_PETARDED) != (uint16_t)(SAMPRakNet::GetCookie(address)))
 	{
-		if ((xordCookie ^ OMP_PETARDED) != (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress))) // it's omp
+		if ((xordCookie ^ OMP_PETARDED) != (uint16_t)(SAMPRakNet::GetCookie(address))) // it's omp
 		{
 #ifdef _DO_PRINTF
 			if (SAMPRakNet::ShouldLogCookies())
@@ -729,8 +764,8 @@ bool SAMPRakNet::OnConnectionRequest(
 #endif
 			char c[3];
 			c[0] = RakNet::ID_OPEN_CONNECTION_COOKIE;
-			*(uint16_t*)&c[1] = (uint16_t)(SAMPRakNet::GetCookie(playerId.binaryAddress));
-			RakNet::SocketLayer::Instance()->SendTo(connectionSocket, (const char*)&c, 3, playerId.binaryAddress, playerId.port);
+			*(uint16_t*)&c[1] = (uint16_t)(SAMPRakNet::GetCookie(address));
+			RakNet::SocketLayer::Instance()->SendTo(connectionSocket, (const char*)&c, 3, address);
 			ResetOmpPlayerConfiguration(playerId);
 			return false;
 		}
@@ -741,7 +776,7 @@ bool SAMPRakNet::OnConnectionRequest(
 			std::uniform_int_distribution<uint32_t> dist(0, UINT32_MAX);
 
 			uint32_t randomInt = dist(gen);
-			ReplyToOmpClientAccessRequest(connectionSocket, playerId, randomInt);
+			ReplyToOmpClientAccessRequest(connectionSocket, address, playerId, randomInt);
 		}
 	}
 

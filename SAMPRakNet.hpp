@@ -28,6 +28,7 @@ typedef int SOCKET;
 
 #include "Include/raknet/NetworkTypes.h"
 #include "Include/raknet/GetTime.h"
+#include "Include/raknet/SocketLayer.h"
 
 #define MAX_UNVERIFIED_RPCS (5)
 
@@ -103,6 +104,35 @@ public:
 		return (static_cast<PlayerAddressHash>(player.binaryAddress) << 16) | player.port;
 	}
 
+	static PlayerAddressHash HashTransportAddress(const RakNet::TransportAddress& address)
+	{
+		PlayerAddressHash hash = 1469598103934665603ull;
+		auto mix = [&hash](uint8_t byte)
+		{
+			hash ^= byte;
+			hash *= 1099511628211ull;
+		};
+
+		mix(static_cast<uint8_t>(address.addressFamily & 0xFF));
+		mix(static_cast<uint8_t>((address.addressFamily >> 8) & 0xFF));
+		mix(static_cast<uint8_t>(address.port & 0xFF));
+		mix(static_cast<uint8_t>((address.port >> 8) & 0xFF));
+
+		const size_t length = address.IsIPv6() ? 16u : (address.IsIPv4() ? 4u : 0u);
+		for (size_t i = 0; i < length; ++i)
+			mix(address.address[i]);
+
+		if (address.IsIPv6())
+		{
+			mix(static_cast<uint8_t>(address.scopeId & 0xFF));
+			mix(static_cast<uint8_t>((address.scopeId >> 8) & 0xFF));
+			mix(static_cast<uint8_t>((address.scopeId >> 16) & 0xFF));
+			mix(static_cast<uint8_t>((address.scopeId >> 24) & 0xFF));
+		}
+
+		return hash;
+	}
+
 	static uint8_t* Decrypt(uint8_t const* src, int len);
 	static uint8_t* Encrypt(const OmpPlayerEncryptionData* encryptionData, uint8_t const* src, int len);
 
@@ -112,13 +142,14 @@ public:
 	static uint32_t GetToken() { return token_; }
 	static void SeedToken() { token_ = rand(); }
 
-	static void HandleQuery(SOCKET instance, int outsize, const sockaddr_in& client, char const* buf, int insize);
+	static void HandleQuery(SOCKET instance, int outsize, const sockaddr_storage& client, char const* buf, int insize);
 
 	static Pair<uint8_t, StringView> GenerateAuth();
 	static bool CheckAuth(uint8_t index, StringView auth);
 
 	static void SeedCookie();
 	static uint16_t GetCookie(unsigned int address);
+	static uint16_t GetCookie(const RakNet::TransportAddress& address);
 
 	static void SetTimeout(unsigned int timeout) { timeout_ = timeout; }
 	static unsigned int GetTimeout() { return timeout_; }
@@ -152,6 +183,7 @@ public:
 	static ICore* GetCore() { return core_; }
 
 	static void ReplyToOmpClientAccessRequest(SOCKET connectionSocket, const RakNet::PlayerID& playerId, uint32_t encryptionKey);
+	static void ReplyToOmpClientAccessRequest(SOCKET connectionSocket, const RakNet::TransportAddress& address, const RakNet::PlayerID& playerId, uint32_t encryptionKey);
 
 	static bool IsPlayerUsingOmp(PlayerAddressHash hash)
 	{
@@ -212,12 +244,26 @@ public:
 		return incomingConnections_.find(binaryAddress) != incomingConnections_.end();
 	}
 
+	static bool IsAlreadyRequestingConnection(const RakNet::TransportAddress& address)
+	{
+		return incomingConnections_.find(HashTransportAddress(address)) != incomingConnections_.end();
+	}
+
 	static void SetRequestingConnection(unsigned int binaryAddress, bool status)
 	{
 		if (status)
 			incomingConnections_.insert(binaryAddress);
 		else
 			incomingConnections_.erase(binaryAddress);
+	}
+
+	static void SetRequestingConnection(const RakNet::TransportAddress& address, bool status)
+	{
+		auto hash = HashTransportAddress(address);
+		if (status)
+			incomingConnections_.insert(hash);
+		else
+			incomingConnections_.erase(hash);
 	}
 
 	static bool IsOmpEncryptionEnabled()
@@ -228,6 +274,14 @@ public:
 
 	static bool OnConnectionRequest(
 		SOCKET connectionSocket,
+		RakNet::PlayerID& playerId,
+		const char* data,
+		RakNet::RakNetTime& minConnectionTick,
+		RakNet::RakNetTime& minConnectionLogTick);
+
+	static bool OnConnectionRequest(
+		SOCKET connectionSocket,
+		const RakNet::TransportAddress& address,
 		RakNet::PlayerID& playerId,
 		const char* data,
 		RakNet::RakNetTime& minConnectionTick,
