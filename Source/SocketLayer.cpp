@@ -370,14 +370,17 @@ int SocketLayer::RecvFrom( const SOCKET s, RakPeer *rakPeer, int *errorCode )
 
 	if ( len != SOCKET_ERROR )
 	{
+#ifndef RAKNET_BUILD_FOR_CLIENT
 		if (len > 10 && data[0] == 'S' && data[1] == 'A' && data[2] == 'M' && data[3] == 'P')
 		{
 			SAMPRakNet::HandleQuery(s, len2, sa, data, len);
 			return 1;
 		}
+#endif
 
 		unsigned short portnum;
 		portnum = ntohs( sa.sin_port );
+#ifndef RAKNET_BUILD_FOR_CLIENT
 		uint8_t* decrypted = SAMPRakNet::Decrypt((uint8_t*)data, len);
 		if (decrypted) {
 			ProcessNetworkPacket(sa.sin_addr.s_addr, portnum, (char*)decrypted, len - 1, rakPeer);
@@ -387,6 +390,9 @@ int SocketLayer::RecvFrom( const SOCKET s, RakPeer *rakPeer, int *errorCode )
 			uint8_t* const addr = reinterpret_cast<uint8_t*>(&sa.sin_addr.s_addr);
 			SAMPRakNet::GetCore()->printLn("Dropping bad packet from %u.%u.%u.%u:%u!", addr[0], addr[1], addr[2], addr[3], sa.sin_port);
 		}
+#endif
+#else // RAKNET_BUILD_FOR_CLIENT
+		ProcessNetworkPacket(sa.sin_addr.s_addr, portnum, data, len, rakPeer);
 #endif
 		return 1;
 	}
@@ -456,6 +462,7 @@ int SocketLayer::SendTo( SOCKET s, const char *data, int length, unsigned int bi
 	do
 	{
 		// TODO - use WSASendTo which is faster.
+#ifndef RAKNET_BUILD_FOR_CLIENT
 		auto encrypted = (uint8_t*)data;
 		if (SAMPRakNet::IsOmpEncryptionEnabled())
 		{
@@ -474,6 +481,10 @@ int SocketLayer::SendTo( SOCKET s, const char *data, int length, unsigned int bi
 		{
 			len = sendto(s, (char*)encrypted, length, 0, (const sockaddr*)&sa, sizeof(struct sockaddr_in));
 		}
+#else
+		auto encrypted = SAMPRakNet::Encrypt((uint8_t*)data, length);
+		len = sendto(s, (char*)encrypted, length + 1, 0, (const sockaddr*)&sa, sizeof(struct sockaddr_in));
+#endif
 	}
 	while ( len == 0 );
 

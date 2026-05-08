@@ -429,16 +429,20 @@ namespace RakNet
 		/// \sa RakNetStatistics.h
 		virtual RakNetStatisticsStruct * GetStatistics( const PlayerID playerId )=0;
 
+#ifndef RAKNET_BUILD_FOR_CLIENT
 		/// Get SAMP data for a player from their ID
 		virtual SAMPRakNet::RemoteSystemData GetSAMPDataFromPlayerID(const PlayerID playerId) = 0;
+#endif
 
 		/// Get Remote System data for a player from their ID
 		virtual RakPeer::RemoteSystemStruct* GetRemoteSystemFromPlayerID(const PlayerID playerId) = 0;
 
+#ifndef RAKNET_BUILD_FOR_CLIENT
 		/// Reserves a number of connection slots for internal use (e.g., NPCs).
 		/// Reserved slots are subtracted from the maximum peer limit when accepting new connections.
 		/// \param[in] count: The number of slots to reserve.
 		virtual void ReserveSlots(unsigned short count) = 0;
+#endif
 	};
 }
 
